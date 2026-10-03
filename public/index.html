@@ -4,213 +4,458 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Casapri — Invertí en ladrillo con cuotapartes</title>
-<meta name="description" content="Comprá cuotapartes de un edificio en construcción en Mar del Plata. Valor actualizado día a día, ingreso sin costo y contratos firmados por mail.">
+<meta name="description" content="Comprá cuotapartes de un edificio en construcción en Mar del Plata. Valor en dólares actualizado día a día, ingreso en pesos o dólares sin costo y contratos firmados en la plataforma.">
+<meta property="og:title" content="Casapri — Invertí en ladrillo, de a una cuotaparte">
+<meta property="og:description" content="Un edificio en Mar del Plata dividido en cuotapartes. Su valor en dólares sube todos los días.">
 <link rel="icon" href="/img/logo.svg" type="image/svg+xml">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;1,9..144,400&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/css/estilo.css">
 <style>
-  .hero { padding: 56px 0 32px; display: grid; grid-template-columns: 1.15fr .85fr; gap: 40px; align-items: center; }
-  .hero p.bajada { font-size: 18px; color: var(--tenue); max-width: 34em; }
-  .hero .acciones { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 22px; }
-  .cotiz { background: var(--tinta); color: #fff; border-radius: 20px; padding: 26px; box-shadow: var(--sombra); position: relative; overflow: hidden; }
-  .cotiz::after { content: ''; position: absolute; right: -60px; bottom: -60px; width: 200px; height: 200px; border-radius: 50%; background: radial-gradient(circle, rgba(42,157,143,.45), transparent 70%); }
-  .cotiz .rot { font-size: 12px; text-transform: uppercase; letter-spacing: .08em; opacity: .75; font-weight: 600; }
-  .cotiz .grande { font-family: var(--serif); font-size: clamp(32px, 9vw, 46px); white-space: nowrap; margin: 4px 0 2px; font-variant-numeric: tabular-nums; }
-  .cotiz .linea { display: flex; justify-content: space-between; border-top: 1px solid rgba(255,255,255,.14); padding-top: 12px; margin-top: 14px; font-size: 14px; }
-  .cotiz .linea span:first-child { opacity: .75; }
-  .barra-prog { height: 8px; border-radius: 99px; background: rgba(255,255,255,.15); overflow: hidden; margin-top: 6px; }
-  .barra-prog i { display: block; height: 100%; background: var(--arena); border-radius: 99px; }
-  section { padding: 36px 0; }
-  .seccion-titulo { display: flex; justify-content: space-between; align-items: end; gap: 16px; flex-wrap: wrap; margin-bottom: 18px; }
-  .seccion-titulo p { margin: 0; color: var(--tenue); max-width: 40em; }
-  .paso b { display: inline-flex; width: 30px; height: 30px; border-radius: 50%; background: var(--arena-suave); color: var(--tinta); align-items: center; justify-content: center; font-family: var(--serif); margin-bottom: 10px; }
-  .garante { background: var(--arena-suave); border-color: #F0DDA7; display: grid; grid-template-columns: auto 1fr; gap: 20px; align-items: center; }
-  .escudo { width: 56px; height: 56px; border-radius: 14px; background: var(--tinta); display: grid; place-items: center; }
-  .grafico { position: relative; height: 320px; }
-  .calc { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; align-items: center; }
-  @media (max-width: 860px) { .hero, .calc { grid-template-columns: 1fr; } .hero { padding-top: 32px; } }
-  @media (max-width: 600px) { .garante { grid-template-columns: 1fr; } .nav .ocultar-movil { display: none; } }
+  /* ───────── Portada ───────── */
+  .portada { position: relative; overflow: hidden; color: #fff; background: linear-gradient(180deg, #0A2E35 0%, #0E3B43 38%, #1B5E63 72%, #E9C46A 128%); min-height: min(100vh, 900px); display: flex; flex-direction: column; }
+  .portada .barra { position: absolute; inset: 0 0 auto; background: transparent; border: 0; backdrop-filter: none; }
+  .portada .marca { color: #fff; }
+  .portada .nav a:not(.btn) { color: rgba(255,255,255,.85); }
+  .portada .nav a:not(.btn):hover { background: rgba(255,255,255,.08); }
+  .portada .btn.claro { background: var(--arena); color: var(--tinta); }
+  .portada .btn.claro:hover { background: #F1D27F; }
+  .portada .btn.borde { background: transparent; color: #fff; border-color: rgba(255,255,255,.35); }
+  .portada .btn.borde:hover { background: rgba(255,255,255,.08); }
+  .estrellas { position: absolute; inset: 0; background-image: radial-gradient(1px 1px at 12% 18%, #fff8, transparent), radial-gradient(1px 1px at 28% 8%, #fff6, transparent), radial-gradient(1.5px 1.5px at 44% 22%, #fff7, transparent), radial-gradient(1px 1px at 63% 12%, #fff5, transparent), radial-gradient(1px 1px at 78% 26%, #fff6, transparent), radial-gradient(1.5px 1.5px at 90% 9%, #fff8, transparent), radial-gradient(1px 1px at 6% 34%, #fff4, transparent); pointer-events: none; }
+  .portada-cuerpo { position: relative; z-index: 2; flex: 1; display: grid; grid-template-columns: 1fr 1fr; gap: 24px; align-items: center; padding-top: 96px; padding-bottom: 30px; }
+  .portada h1 { color: #fff; font-size: clamp(2.4rem, 6vw, 4.4rem); font-weight: 400; letter-spacing: -.025em; line-height: 1.02; }
+  .portada h1 em { font-style: italic; color: var(--arena); }
+  .portada .bajada { font-size: clamp(16px, 2vw, 19px); color: rgba(255,255,255,.82); max-width: 32em; margin: 18px 0 28px; }
+  .portada .acciones { display: flex; gap: 10px; flex-wrap: wrap; }
+  .sello { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; color: rgba(255,255,255,.9); background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.16); padding: 6px 12px; border-radius: 99px; margin-bottom: 22px; }
+  .sello i { width: 7px; height: 7px; border-radius: 50%; background: #5EE0C8; box-shadow: 0 0 0 4px rgba(94,224,200,.2); animation: latido 2s infinite; }
+  @keyframes latido { 50% { box-shadow: 0 0 0 7px rgba(94,224,200,0); } }
+  .mini { display: flex; gap: 28px; flex-wrap: wrap; margin-top: 34px; font-size: 13px; color: rgba(255,255,255,.7); }
+  .mini b { display: block; font: 600 22px var(--serif); color: #fff; }
+
+  .escena { position: relative; align-self: end; }
+  .escena svg { width: 100%; height: auto; display: block; overflow: visible; }
+  .piso { transform-box: fill-box; transform-origin: 50% 100%; opacity: 0; animation: piso .55s cubic-bezier(.2,.8,.2,1) forwards; animation-delay: calc(.25s + var(--i) * .16s); }
+  @keyframes piso { from { opacity: 0; transform: translateY(-26px) scaleY(.6); } to { opacity: 1; transform: none; } }
+  .ventana { fill: #17474F; transition: fill .9s ease; }
+  .ventana.luz { fill: #F4D58A; }
+  .grua { opacity: 0; animation: aparece 1s ease forwards 2s; }
+  .gancho { transform-box: view-box; transform-origin: 455px 76px; animation: hamaca 4s ease-in-out infinite alternate 2s; }
+  @keyframes hamaca { from { transform: rotate(-4deg); } to { transform: rotate(4deg); } }
+  @keyframes aparece { to { opacity: 1; } }
+  .ola { animation: ola 30s linear infinite; }
+  .ola.b { animation-duration: 45s; }
+  @keyframes ola { to { transform: translateX(-1440px); } }
+  .mar { position: absolute; left: 0; right: 0; bottom: 0; width: 100%; height: 56px; z-index: 3; }
+  .ola { animation-duration: 30s; } .ola.b { animation-duration: 45s; }
+  .ficha { position: absolute; left: 0; top: 18%; background: rgba(255,255,255,.96); color: var(--texto); border-radius: 14px; padding: 12px 16px; box-shadow: 0 12px 40px rgba(0,0,0,.25); opacity: 0; animation: entra .7s ease forwards 2.2s; min-width: 190px; }
+  .ficha .rot { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--tenue); font-weight: 600; }
+  .ficha .v { font: 600 24px var(--serif); color: var(--tinta); font-variant-numeric: tabular-nums; }
+  .ficha .s { font-size: 12px; color: var(--mar); font-weight: 600; }
+  .ficha.dos { left: auto; right: -4px; top: 52%; animation-delay: 2.6s; }
+  @keyframes entra { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+  .escena:not(.ver) .piso, .escena:not(.ver) .grua, .escena:not(.ver) .ficha { animation-play-state: paused; }
+  @media (prefers-reduced-motion: reduce) { .piso, .grua, .ficha { animation: none; opacity: 1; } .gancho, .ola, .sello i { animation: none; } }
+  @media (max-width: 860px) {
+    .portada-cuerpo { grid-template-columns: 1fr; padding-top: 88px; }
+    .ficha { padding: 9px 12px; min-width: 0; } .ficha .v { font-size: 19px; } .ficha.dos { top: 60%; }
+    .escena { max-width: 460px; width: 100%; margin: 0 auto; }
+    .portada .nav .ocultar-movil { display: none; }
+  }
+
+  /* ───────── Secciones ───────── */
+  section.bloque { padding-top: 72px; padding-bottom: 72px; }
+  .eyebrow { font-size: 12px; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; color: var(--mar); margin-bottom: 10px; }
+  .encabezado { max-width: 680px; margin-bottom: 30px; }
+  .encabezado p { color: var(--tenue); font-size: 17px; }
+  .cinta { background: var(--tinta); color: #fff; }
+  .cinta .contenedor { display: grid; grid-template-columns: repeat(5, 1fr); gap: 16px; padding-top: 22px; padding-bottom: 22px; }
+  .cinta div { font-size: 12px; color: rgba(255,255,255,.65); text-transform: uppercase; letter-spacing: .06em; font-weight: 600; }
+  .cinta b { display: block; font: 600 22px var(--serif); color: #fff; text-transform: none; letter-spacing: 0; margin-top: 2px; }
+  @media (max-width: 860px) { .cinta .contenedor { grid-template-columns: repeat(2, 1fr); } }
+
+  .grafico { position: relative; height: 340px; }
+  .crece { display: grid; grid-template-columns: 1.5fr 1fr; gap: 20px; }
+  .crece > *, .pisos > * { min-width: 0; }
+  .simu .val { font-size: 32px; }
+  @media (max-width: 860px) { .crece { grid-template-columns: 1fr; } }
+
+  /* Elegí tu piso */
+  .pisos { display: grid; grid-template-columns: 300px 1fr; gap: 28px; align-items: start; }
+  .alzado { background: linear-gradient(180deg, #EAF4F2, #FAF7F2); border: 1px solid var(--borde); border-radius: 18px; padding: 24px 24px 0; }
+  .alzado svg { width: 100%; height: auto; display: block; }
+  .alzado .p { cursor: pointer; }
+  .alzado .p rect.f { fill: #fff; stroke: #CFE3E0; transition: fill .2s; }
+  .alzado .p:hover rect.f { fill: var(--mar-suave); }
+  .alzado .p.sel rect.f { fill: var(--tinta); stroke: var(--tinta); }
+  .alzado .p text { font: 600 11px var(--sans); fill: var(--tinta); pointer-events: none; }
+  .alzado .p.sel text { fill: #fff; }
+  .alzado .p .vn { fill: #BFDCD8; }
+  .alzado .p.sel .vn { fill: #F4D58A; }
+  .unidades { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 14px; }
+  .unidad { background: #fff; border: 1px solid var(--borde); border-radius: 16px; padding: 20px; box-shadow: var(--sombra); animation: entra .35s ease both; }
+  .unidad h3 { font-size: 26px; margin: 0; }
+  .unidad .tip { color: var(--tenue); font-size: 14px; margin-bottom: 14px; }
+  .unidad .fila-u { display: flex; justify-content: space-between; font-size: 14px; padding: 6px 0; border-top: 1px dashed var(--borde); }
+  .unidad .fila-u b { font-variant-numeric: tabular-nums; }
+  .unidad .grande-u { font: 600 24px var(--serif); color: var(--tinta); }
+  @media (max-width: 760px) { .pisos { grid-template-columns: 1fr; } .alzado { max-width: 320px; margin: 0 auto; } }
+
+  /* Plan de obra */
+  .linea-obra { position: relative; display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; padding-top: 34px; }
+  .linea-obra::before { content: ''; position: absolute; left: 0; right: 0; top: 12px; height: 4px; border-radius: 4px; background: var(--borde); }
+  .linea-obra .hecho { position: absolute; left: 0; top: 12px; height: 4px; border-radius: 4px; background: var(--mar); }
+  .linea-obra .hoy { position: absolute; top: 2px; width: 24px; height: 24px; margin-left: -12px; border-radius: 50%; background: var(--arena); border: 4px solid #fff; box-shadow: 0 0 0 1px var(--borde); }
+  .etapa b { display: block; font-family: var(--serif); color: var(--tinta); font-size: 17px; }
+  .etapa span { font-size: 13px; color: var(--tenue); }
+  @media (max-width: 760px) { .linea-obra { grid-template-columns: 1fr; padding-top: 0; padding-left: 26px; } .linea-obra::before { left: 8px; right: auto; top: 0; bottom: 0; width: 4px; height: auto; } .linea-obra .hecho, .linea-obra .hoy { display: none; } }
+
+  .paso { position: relative; }
+  .paso .ic { width: 44px; height: 44px; border-radius: 12px; background: var(--mar-suave); display: grid; place-items: center; margin-bottom: 14px; }
+  .paso .n { position: absolute; top: 18px; right: 20px; font: 600 40px var(--serif); color: #EFEAE0; }
+
+  .respaldo { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .respaldo .tarjeta { display: flex; gap: 16px; align-items: flex-start; }
+  .escudo { width: 52px; height: 52px; flex: none; border-radius: 14px; background: var(--tinta); display: grid; place-items: center; }
+  @media (max-width: 760px) { .respaldo { grid-template-columns: 1fr; } }
+
+  .cierre { background: var(--tinta); color: #fff; border-radius: 24px; padding: 48px; position: relative; overflow: hidden; display: grid; grid-template-columns: 1.4fr 1fr; gap: 24px; align-items: center; }
+  .cierre h2 { color: #fff; font-weight: 400; font-size: clamp(1.8rem, 4vw, 2.8rem); }
+  .cierre p { color: rgba(255,255,255,.75); }
+  .cierre .btn { background: var(--arena); color: var(--tinta); }
+  .cierre svg { width: 100%; max-width: 280px; justify-self: end; }
+  @media (max-width: 760px) { .cierre { grid-template-columns: 1fr; padding: 32px 22px; } .cierre svg { display: none; } }
 </style>
 </head>
 <body>
-<header class="barra"><div class="contenedor">
-  <span id="marca"></span>
-  <nav class="nav">
-    <a class="ocultar-movil" href="#unidades">Unidades</a>
-    <a class="ocultar-movil" href="#como">Cómo funciona</a>
-    <a href="/app">Ingresar</a>
-    <a class="btn" href="/app#registro">Invertir</a>
-  </nav>
-</div></header>
 
-<main class="contenedor">
-  <div class="hero">
+<header class="portada">
+  <div class="estrellas"></div>
+  <div class="barra"><div class="contenedor">
+    <span id="marca"></span>
+    <nav class="nav">
+      <a class="ocultar-movil" href="#pisos">Unidades</a>
+      <a class="ocultar-movil" href="#como">Cómo funciona</a>
+      <a href="/app">Ingresar</a>
+      <a class="btn claro" href="/app#registro">Invertir</a>
+    </nav>
+  </div></div>
+
+  <svg class="mar" viewBox="0 0 1440 70" preserveAspectRatio="none" aria-hidden="true"><path class="ola" fill="#2A9D8F" d="M0 30 Q60 14 120 30 T240 30 T360 30 T480 30 T600 30 T720 30 T840 30 T960 30 T1080 30 T1200 30 T1320 30 T1440 30 T1560 30 T1680 30 T1800 30 T1920 30 T2040 30 T2160 30 T2280 30 T2400 30 T2520 30 T2640 30 T2760 30 T2880 30 V70 H0z"/><path class="ola b" fill="#1B6F6A" d="M0 46 Q60 34 120 46 T240 46 T360 46 T480 46 T600 46 T720 46 T840 46 T960 46 T1080 46 T1200 46 T1320 46 T1440 46 T1560 46 T1680 46 T1800 46 T1920 46 T2040 46 T2160 46 T2280 46 T2400 46 T2520 46 T2640 46 T2760 46 T2880 46 V70 H0z"/></svg>
+  <div class="contenedor portada-cuerpo">
     <div>
-      <span class="etiqueta" id="proyecto-tag">Mar del Plata</span>
-      <h1 style="margin-top:14px">Invertí en ladrillo, de a una cuotaparte.</h1>
-      <p class="bajada">Comprá cuotapartes de un edificio en construcción. Su valor sube todos los días a una tasa de referencia del <b id="tasa-hero">9%</b> anual, y podés vender y retirar cuando quieras.</p>
+      <span class="sello"><i></i><span id="proyecto-tag">Mar del Plata</span></span>
+      <h1>Invertí en ladrillo,<br><em>de a una cuotaparte.</em></h1>
+      <p class="bajada">Un edificio en Mar del Plata dividido en cuotapartes. Su valor en dólares sube todos los días a una tasa de referencia del <b id="tasa-hero">9%</b> anual. Entrás con pesos o dólares, y vendés y retirás cuando quieras.</p>
       <div class="acciones">
-        <a class="btn" href="/app#registro">Crear mi cuenta</a>
-        <a class="btn sec" href="#calculadora">Simular mi inversión</a>
+        <a class="btn claro" href="/app#registro">Crear mi cuenta</a>
+        <a class="btn borde" href="#crece">Simular mi inversión</a>
       </div>
-      <p class="chico tenue" style="margin-top:16px">Ingreso de fondos sin costo · Retiros con <span id="com-hero">0,5%</span> de comisión · Contratos firmados por mail</p>
+      <div class="mini">
+        <div><b id="mini-tasa">9%</b>tasa anual de referencia</div>
+        <div><b id="mini-plazo">4 años</b>de obra</div>
+        <div><b>US$</b>todo valuado en dólares</div>
+      </div>
     </div>
-    <div class="cotiz">
-      <div class="rot">Valor de la cuotaparte hoy</div>
-      <div class="grande" id="precio-hoy">—</div>
-      <div class="chico" style="opacity:.8" id="precio-sub">&nbsp;</div>
-      <div class="chico" style="opacity:.8;margin-top:2px" id="precio-ars">&nbsp;</div>
-      <div class="linea"><span>Valor inicial</span><b class="num" id="precio-ini">—</b></div>
-      <div class="linea"><span>Valor estimado al final</span><b class="num" id="precio-fin">—</b></div>
-      <div class="linea"><span>Valor del edificio hoy</span><b class="num" id="valor-edif">—</b></div>
-      <div class="linea"><span>Dólar MEP hoy</span><b class="num" id="mep">—</b></div>
-      <div style="margin-top:16px">
-        <div class="chico" style="display:flex;justify-content:space-between;opacity:.85"><span>Cuotapartes suscriptas</span><span id="pct-vendido">—</span></div>
-        <div class="barra-prog"><i id="barra-vendido" style="width:0"></i></div>
-      </div>
+
+    <div class="escena" aria-hidden="true">
+      <svg viewBox="0 0 520 600" id="edificio-svg">
+        <circle cx="96" cy="120" r="34" fill="#F4D58A" opacity=".9"/>
+        <circle cx="96" cy="120" r="54" fill="#F4D58A" opacity=".12"/>
+        <!-- edificios del fondo -->
+        <g fill="#0A2E35" opacity=".55">
+          <rect x="18" y="380" width="70" height="170" rx="3"/><rect x="60" y="430" width="70" height="120" rx="3"/>
+          <rect x="402" y="400" width="60" height="150" rx="3"/><rect x="448" y="350" width="64" height="200" rx="3"/>
+        </g>
+        <g id="pisos-hero"></g>
+        <!-- grúa -->
+        <g class="grua" stroke="#E9C46A" stroke-width="3" fill="none" stroke-linecap="round">
+          <path d="M392 552 V60 M404 552 V60 M392 520 L404 500 L392 480 L404 460 L392 440 L404 420 L392 400 L404 380 L392 360 L404 340 L392 320 L404 300 L392 280 L404 260 L392 240 L404 220 L392 200 L404 180 L392 160 L404 140 L392 120 L404 100 L392 80"/>
+          <path d="M250 64 H500 M250 76 H500 M398 40 L250 64 M398 40 L500 64"/>
+          <rect x="378" y="70" width="24" height="18" fill="#E9C46A" stroke="none" rx="2"/>
+          <g class="gancho"><path d="M455 76 V196" stroke-width="1.5"/><path d="M449 196 h12 v8 a6 6 0 0 1 -12 0z" fill="#E9C46A" stroke="none"/><rect x="430" y="206" width="50" height="14" rx="2" fill="#F4E9D8" stroke="none" opacity=".9"/></g>
+        </g>
+        <!-- costa y mar -->
+        <rect x="-40" y="550" width="600" height="8" fill="#0A2E35"/>
+
+      </svg>
+      <div class="ficha"><div class="rot">Cuotaparte hoy</div><div class="v" id="ficha-precio">US$ 1,000000</div><div class="s" id="ficha-sube">▲ sube todos los días</div></div>
+      <div class="ficha dos"><div class="rot">Un depto de 70.000 CP</div><div class="v" id="ficha-depto">US$ 70.000</div><div class="s" id="ficha-depto-fin">al final de obra</div></div>
     </div>
   </div>
+</header>
 
-  <section>
-    <div class="grilla g4" id="kpis"></div>
-  </section>
+<div class="cinta"><div class="contenedor" id="cinta"></div></div>
 
-  <section>
-    <div class="seccion-titulo">
-      <div><h2>Evolución del valor de la cuotaparte</h2>
-      <p>Desde el inicio hasta la entrega estimada. El punto marca el valor de hoy.</p></div>
-    </div>
-    <div class="tarjeta"><div class="grafico"><canvas id="grafico"></canvas></div></div>
-  </section>
-
-  <section id="unidades">
-    <div class="seccion-titulo">
-      <div><h2>Unidades del edificio</h2>
-      <p>Cada departamento equivale a una cantidad fija de cuotapartes. Su valor en dólares es esa cantidad por el valor de la cuotaparte del día.</p></div>
-    </div>
-    <div class="tarjeta" style="padding:6px"><div class="tabla-env"><table>
-      <thead><tr><th>Unidad</th><th>Tipología</th><th class="der">m²</th><th class="der">Cuotapartes</th><th class="der">Valor hoy</th><th class="der">En pesos (MEP)</th><th class="der">Valor estimado al final</th></tr></thead>
-      <tbody id="tabla-unidades"><tr><td colspan="6" class="tenue">Cargando…</td></tr></tbody>
-    </table></div></div>
-  </section>
-
-  <section id="calculadora">
-    <div class="tarjeta calc">
-      <div>
-        <h2>Simulá tu inversión</h2>
-        <p class="tenue">Calculá cuántas cuotapartes comprás hoy y cuánto valdrían al final de la obra, a la tasa de referencia.</p>
-        <div class="campo"><label for="sim-monto">Monto a invertir (US$)</label><input id="sim-monto" type="number" min="0" step="100" value="10000" inputmode="decimal"><div class="ayuda" id="sim-ars"></div></div>
-        <p class="chico tenue">Podés ingresar pesos: se convierten a dólares al valor del dólar MEP del día en que se acreditan.</p>
-      </div>
-      <div class="grilla g2">
-        <div class="kpi"><div class="rot">Cuotapartes hoy</div><div class="val" id="sim-cp">—</div></div>
-        <div class="kpi"><div class="rot">Valor estimado al final</div><div class="val" id="sim-fin">—</div><div class="sub sube" id="sim-gan"></div></div>
+<main>
+  <section class="bloque contenedor" id="crece">
+    <div class="encabezado"><div class="eyebrow">El valor</div><h2>Tu cuotaparte crece todos los días</h2>
+      <p>Empieza en <b id="ini-txt">US$ 1</b> y se actualiza día a día hasta la entrega. El punto marca el valor de hoy.</p></div>
+    <div class="crece">
+      <div class="tarjeta"><div class="grafico"><canvas id="grafico"></canvas></div></div>
+      <div class="tarjeta simu">
+        <h3>Simulá tu inversión</h3>
+        <div class="selector-sim" style="display:flex;gap:8px;margin-bottom:10px">
+          <button class="btn chico" data-mon="USD">En dólares</button><button class="btn sec chico" data-mon="ARS">En pesos</button>
+        </div>
+        <div class="campo"><label for="sim-monto" id="sim-label">Monto a invertir (US$)</label><input id="sim-monto" type="number" min="0" step="100" value="10000" inputmode="decimal"><div class="ayuda" id="sim-ars"></div></div>
+        <div class="kpi" style="margin-top:8px"><div class="rot">Cuotapartes que comprás hoy</div><div class="val" id="sim-cp">—</div></div>
+        <div class="kpi" style="margin-top:14px"><div class="rot">Valor estimado al final</div><div class="val" id="sim-fin">—</div><div class="sub sube" id="sim-gan"></div></div>
+        <p class="chico tenue" style="margin:16px 0 0">Los pesos se convierten a dólares al dólar MEP del día de acreditación.</p>
       </div>
     </div>
   </section>
 
-  <section id="como">
-    <div class="seccion-titulo"><div><h2>Cómo funciona</h2></div></div>
+  <section class="bloque" id="pisos" style="background:#fff;border-top:1px solid var(--borde);border-bottom:1px solid var(--borde)">
+    <div class="contenedor">
+      <div class="encabezado"><div class="eyebrow">Las unidades</div><h2>Elegí un piso y mirá cuánto vale cada depto</h2>
+        <p>Cada departamento equivale a una cantidad fija de cuotapartes. Su valor en dólares es esa cantidad por el valor del día.</p></div>
+      <div class="pisos">
+        <div class="alzado"><svg id="alzado" viewBox="0 0 260 400"></svg></div>
+        <div><h3 id="piso-titulo" style="font-size:1.5rem">—</h3><div class="unidades" id="unidades"></div></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="bloque contenedor">
+    <div class="encabezado"><div class="eyebrow">La obra</div><h2>Plan de obra estimado</h2>
+      <p id="obra-txt">Desde el inicio hasta la entrega, unos cuatro años.</p></div>
+    <div class="linea-obra" id="obra"></div>
+  </section>
+
+  <section class="bloque contenedor" id="como">
+    <div class="encabezado"><div class="eyebrow">Cómo funciona</div><h2>Cuatro pasos, todo desde la web</h2></div>
     <div class="grilla g4">
-      <div class="tarjeta paso"><b>1</b><h3>Creá tu cuenta</h3><p class="tenue">Registrate y confirmá tu mail. Ahí vas a recibir cada contrato para firmar.</p></div>
-      <div class="tarjeta paso"><b>2</b><h3>Ingresá fondos</h3><p class="tenue">Transferí dólares a la cuenta del proyecto e informá la transferencia. Sin costo.</p></div>
-      <div class="tarjeta paso"><b>3</b><h3>Comprá cuotapartes</h3><p class="tenue">Elegí el monto, recibís el contrato por mail y lo firmás con un clic.</p></div>
-      <div class="tarjeta paso"><b>4</b><h3>Vendé o retirá</h3><p class="tenue">Vendé al valor del día y retirá a tu cuenta con una comisión de <span class="com-txt">0,5%</span>.</p></div>
+      <div class="tarjeta paso"><span class="n">1</span><div class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#0E3B43" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/></svg></div><h3>Creá tu cuenta</h3><p class="tenue">Registrate, confirmá tu mail y cargá tus datos y tu cuenta bancaria a tu nombre.</p></div>
+      <div class="tarjeta paso"><span class="n">2</span><div class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#0E3B43" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10h18M5 10V20M19 10V20M9 10v10M15 10v10M2 20h20M12 3l9 5H3z"/></svg></div><h3>Ingresá fondos</h3><p class="tenue">Transferí pesos o dólares desde tu cuenta. Sin costo. Los pesos pasan a dólares al MEP del día.</p></div>
+      <div class="tarjeta paso"><span class="n">3</span><div class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#0E3B43" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6M8 14l3 3 5-6"/></svg></div><h3>Comprá y firmá</h3><p class="tenue">Elegí el monto, leé el contrato y firmalo con un código que te llega por mail.</p></div>
+      <div class="tarjeta paso"><span class="n">4</span><div class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#0E3B43" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l6-6 4 4 8-8"/><path d="M14 7h7v7"/></svg></div><h3>Mirá cómo crece</h3><p class="tenue">Seguí tu inversión en dólares y en pesos. Vendé y retirá cuando quieras (<span class="com-txt">0,5%</span> de comisión).</p></div>
     </div>
   </section>
 
-  <section>
-    <div class="tarjeta garante">
-      <div class="escudo"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#E9C46A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg></div>
-      <div><h3 style="margin-bottom:4px">Respaldo de <span id="garante">Lucorin Avicola Mdp S.R.L.</span></h3>
-      <p style="margin:0" class="tenue">La empresa garante respalda las obligaciones del desarrollador frente a los cuotapartistas, en los términos del instrumento de garantía.</p></div>
+  <section class="bloque contenedor" style="padding-top:0">
+    <div class="encabezado"><div class="eyebrow">Respaldo</div><h2>Quiénes están detrás</h2></div>
+    <div class="respaldo">
+      <div class="tarjeta"><div class="escudo"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#E9C46A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18M5 21V7l7-4 7 4v14M9 21v-6h6v6"/></svg></div>
+        <div><h3 style="margin-bottom:4px">Desarrollan <span id="emisor-txt">Casadei &amp; Pringles</span></h3><p class="tenue" style="margin:0">Los socios a cargo del proyecto y la obra en Mar del Plata.</p></div></div>
+      <div class="tarjeta"><div class="escudo"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#E9C46A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg></div>
+        <div><h3 style="margin-bottom:4px">Garantiza <span id="garante">Lucorin Avicola Mdp S.R.L.</span></h3><p class="tenue" style="margin:0">Respalda las obligaciones del desarrollador frente a los cuotapartistas, en los términos del instrumento de garantía.</p></div></div>
     </div>
   </section>
 
-  <p class="chico tenue" style="margin-top:24px">La tasa del <span class="tasa-txt">9%</span> anual es una tasa de referencia para la actualización del valor de la cuotaparte y no constituye una promesa de rentabilidad. Toda inversión implica riesgos. Leé los contratos antes de firmar.</p>
+  <section class="contenedor" style="padding-bottom:24px">
+    <div class="cierre">
+      <div><h2>Tu primer ladrillo,<br>desde <span id="min-txt">US$ 100</span>.</h2>
+        <p>Creá tu cuenta en dos minutos y empezá a seguir el valor de tu cuotaparte día a día.</p>
+        <a class="btn" href="/app#registro">Quiero invertir</a></div>
+      <svg viewBox="0 0 200 180" aria-hidden="true"><g fill="none" stroke="#E9C46A" stroke-width="2"><rect x="60" y="20" width="80" height="150" rx="3"/><path d="M60 50h80M60 80h80M60 110h80M60 140h80M100 20v150"/><rect x="20" y="90" width="40" height="80" rx="2" opacity=".5"/><rect x="140" y="70" width="40" height="100" rx="2" opacity=".5"/></g><g fill="#F4D58A"><rect x="70" y="30" width="20" height="12" rx="1"/><rect x="110" y="60" width="20" height="12" rx="1"/><rect x="70" y="120" width="20" height="12" rx="1"/></g></svg>
+    </div>
+    <p class="chico tenue" style="margin-top:24px">La tasa del <span class="tasa-txt">9%</span> anual es una tasa de referencia para la actualización del valor de la cuotaparte y no constituye una promesa de rentabilidad. Toda inversión implica riesgos. Leé los contratos antes de firmar.</p>
+  </section>
 </main>
 
 <footer class="pie"><div class="contenedor">
   <span>© <span id="anio"></span> <span id="emisor">Casadei &amp; Pringles</span> · Mar del Plata</span>
-  <span><a href="/app">Ingresar</a></span>
+  <span><a href="/app">Ingresar</a> · <a href="/app#registro">Crear cuenta</a></span>
 </div></footer>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <script type="module">
 import { api, marcaHtml, usd, usd0, ars, ars2, cp, precio, pct, fecha, esc } from '/js/comun.js';
 
-document.getElementById('marca').innerHTML = marcaHtml;
-document.getElementById('anio').textContent = new Date().getFullYear();
 const $ = (id) => document.getElementById(id);
+$('marca').innerHTML = marcaHtml;
+$('anio').textContent = new Date().getFullYear();
+const quieto = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+// La animación del edificio arranca cuando la escena entra en pantalla (en celular queda abajo).
+const escena = document.querySelector('.escena');
+const esperando = [];
+function cuandoSeVea(fn) { escena.classList.contains('ver') ? fn() : esperando.push(fn); }
+function arrancar() { if (escena.classList.contains('ver')) return; escena.classList.add('ver'); esperando.splice(0).forEach((fn) => fn()); }
+const r0 = escena.getBoundingClientRect();
+if (r0.top < innerHeight && r0.bottom > 0) requestAnimationFrame(arrancar);
+new IntersectionObserver((es, obs) => {
+  if (!es.some((e) => e.isIntersecting)) return;
+  arrancar();
+  obs.disconnect();
+}, { threshold: 0.25 }).observe(escena);
+
+// ── Edificio de la portada: 10 pisos que se construyen de abajo hacia arriba ──
+(function dibujarEdificio() {
+  const g = $('pisos-hero');
+  const NS = 'http://www.w3.org/2000/svg';
+  const x = 150, ancho = 220, alto = 40, base = 550, pisos = 11;
+  let html = '';
+  for (let i = 0; i < pisos; i++) {
+    const y = base - (i + 1) * alto;
+    const ultimo = i === pisos - 1;
+    html += `<g class="piso" style="--i:${i}">`;
+    if (i === 0) {
+      html += `<rect x="${x}" y="${y}" width="${ancho}" height="${alto}" fill="#0E3B43"/><rect x="${x + 86}" y="${y + 8}" width="48" height="${alto - 8}" rx="2" fill="#F4D58A" opacity=".85"/>`;
+    } else {
+      html += `<rect x="${x}" y="${y}" width="${ancho}" height="${alto}" fill="${ultimo ? '#174C55' : '#13434B'}"/>`;
+      html += `<rect x="${x - 6}" y="${y + alto - 4}" width="${ancho + 12}" height="4" fill="#E9F0EE" opacity=".9"/>`;
+      for (let v = 0; v < 5; v++) html += `<rect class="ventana" x="${x + 12 + v * 42}" y="${y + 8}" width="30" height="22" rx="2"/>`;
+      html += `<rect x="${x + ancho}" y="${y + 18}" width="14" height="2.5" fill="#E9F0EE" opacity=".6"/>`;
+    }
+    html += `</g>`;
+  }
+  html += `<g class="piso" style="--i:${pisos}"><rect x="${x + 20}" y="${base - pisos * alto - 14}" width="${ancho - 40}" height="14" fill="#0E3B43"/><rect x="${x + 60}" y="${base - pisos * alto - 30}" width="40" height="16" fill="#0E3B43"/></g>`;
+  g.innerHTML = html;
+  const ventanas = [...g.querySelectorAll('.ventana')];
+  const prender = () => {
+    const v = ventanas[Math.floor(Math.random() * ventanas.length)];
+    v.classList.toggle('luz', Math.random() < 0.62);
+  };
+  cuandoSeVea(() => setTimeout(() => {
+    ventanas.forEach((v) => Math.random() < 0.45 && v.classList.add('luz'));
+    if (!quieto) setInterval(prender, 700);
+  }, quieto ? 0 : 2200));
+})();
+
+// Contador animado
+function contar(el, hasta, fmt, ms = 1600, desde = 0) {
+  if (quieto) { el.textContent = fmt(hasta); return; }
+  const t0 = performance.now();
+  const paso = (t) => {
+    const k = Math.min(1, (t - t0) / ms), e = 1 - Math.pow(1 - k, 3);
+    el.textContent = fmt(desde + (hasta - desde) * e);
+    if (k < 1) requestAnimationFrame(paso);
+  };
+  requestAnimationFrame(paso);
+}
 
 const d = await api('/publico');
 const p = d.parametros;
+const mep = d.mep?.valor;
+const anios = ((new Date(p.fecha_fin) - new Date(p.fecha_inicio)) / 31557600000).toFixed(1).replace('.0', '').replace('.', ',');
+
 $('proyecto-tag').textContent = `${d.proyecto.nombre} · ${d.proyecto.ciudad}`;
 $('tasa-hero').textContent = pct(p.tasa_anual);
+$('mini-tasa').textContent = pct(p.tasa_anual);
+$('mini-plazo').textContent = `${anios} años`;
 document.querySelectorAll('.tasa-txt').forEach((e) => (e.textContent = pct(p.tasa_anual)));
-$('com-hero').textContent = pct(p.comision_retiro);
 document.querySelectorAll('.com-txt').forEach((e) => (e.textContent = pct(p.comision_retiro)));
 $('garante').textContent = d.proyecto.garante;
 $('emisor').textContent = d.proyecto.emisor;
+$('emisor-txt').textContent = d.proyecto.emisor;
+$('ini-txt').textContent = precio(p.valor_inicial).replace(/,?0+$/, '');
+$('min-txt').textContent = usd0(p.min_compra_usd);
 
-$('precio-hoy').textContent = precio(d.precio_hoy);
-$('precio-sub').innerHTML = `<span style="color:#9FE0D6">▲ ${pct(d.precio_hoy / p.valor_inicial - 1)}</span> desde el ${fecha(p.fecha_inicio)}`;
-$('precio-ini').textContent = precio(p.valor_inicial);
-$('precio-fin').textContent = precio(d.precio_final);
-$('valor-edif').textContent = usd0(d.totales.valor_edificio_hoy);
-const mep = d.mep?.valor;
-$('mep').textContent = mep ? ars2(mep) : 'sin dato';
-if (mep) $('precio-ars').textContent = `En pesos: ${ars2(d.precio_hoy * mep)} por cuotaparte`;
+// Fichas flotantes
+cuandoSeVea(() => setTimeout(() => contar($('ficha-precio'), d.precio_hoy, precio, 1400, p.valor_inicial), quieto ? 0 : 2200));
+$('ficha-sube').textContent = `▲ ${pct(d.precio_hoy / p.valor_inicial - 1, 3)} desde el inicio`;
+const ref = d.unidades[0]?.cuotapartes || 70000;
+document.querySelector('.ficha.dos .rot').textContent = `Un depto de ${cp(ref)} CP`;
+cuandoSeVea(() => setTimeout(() => contar($('ficha-depto'), ref * d.precio_final, usd0, 1800, ref * p.valor_inicial), quieto ? 0 : 2600));
+$('ficha-depto-fin').textContent = `estimado al ${fecha(p.fecha_fin)}`;
+
+// Cinta de datos
 const vendido = d.totales.cuotapartes ? d.totales.emitidas / d.totales.cuotapartes : 0;
-$('pct-vendido').textContent = pct(vendido, 1);
-$('barra-vendido').style.width = Math.min(100, vendido * 100) + '%';
+$('cinta').innerHTML = [
+  ['Cuotaparte hoy', precio(d.precio_hoy)],
+  ['En pesos (MEP)', mep ? ars2(d.precio_hoy * mep) : '—'],
+  ['Dólar MEP', mep ? ars2(mep) : '—'],
+  ['Valor del edificio', usd0(d.totales.valor_edificio_hoy)],
+  ['Suscripto', pct(vendido, 1)],
+].map(([r, v]) => `<div>${r}<b>${v}</b></div>`).join('');
 
-const anios = ((new Date(p.fecha_fin) - new Date(p.fecha_inicio)) / 31557600000).toFixed(1).replace('.0', '').replace('.', ',');
-$('kpis').innerHTML = [
-  ['Tasa de referencia', pct(p.tasa_anual), 'anual, compuesta día a día'],
-  ['Plazo de obra', `${anios} años`, `entrega estimada ${fecha(p.fecha_fin)}`],
-  ['Ingreso de fondos', 'Sin costo', `compra mínima ${usd0(p.min_compra_usd)}`],
-  ['Retiro de fondos', pct(p.comision_retiro), 'de comisión sobre lo retirado'],
-].map(([r, v, s]) => `<div class="tarjeta kpi"><div class="rot">${r}</div><div class="val">${v}</div><div class="sub">${s}</div></div>`).join('');
-
-$('tabla-unidades').innerHTML = d.unidades.length
-  ? d.unidades.map((u) => `<tr><td><b>${esc(u.nombre)}</b></td><td>${esc(u.tipologia || '')}</td><td class="der num">${u.m2 ?? ''}</td><td class="der num">${cp(u.cuotapartes)}</td><td class="der num"><b>${usd0(u.valor_hoy)}</b></td><td class="der num tenue">${mep ? ars(u.valor_hoy * mep) : '—'}</td><td class="der num">${usd0(u.valor_final)}</td></tr>`).join('')
-  : '<tr><td colspan="7" class="tenue">Todavía no hay unidades cargadas.</td></tr>';
-
+// ── Simulador ──
+let monSim = 'USD';
 function simular() {
   const m = Number($('sim-monto').value) || 0;
-  const c = m / d.precio_hoy, fin = c * d.precio_final;
+  const enUsd = monSim === 'ARS' ? (mep ? m / mep : 0) : m;
+  const c = enUsd / d.precio_hoy, fin = c * d.precio_final;
   $('sim-cp').textContent = cp(c);
   $('sim-fin').textContent = usd(fin);
-  $('sim-gan').textContent = m > 0 ? `+${usd(fin - m)} (${pct(fin / m - 1, 1)})` : '';
-  $('sim-ars').textContent = mep && m > 0 ? `Hoy son ${ars(m * mep)} al dólar MEP` : '';
+  $('sim-gan').textContent = enUsd > 0 ? `+${usd(fin - enUsd)} (${pct(fin / enUsd - 1, 1)}) en dólares` : '';
+  $('sim-ars').textContent = !mep || m <= 0 ? '' : monSim === 'ARS' ? `Son ${usd(enUsd)} al dólar MEP de hoy (${ars2(mep)})` : `Hoy son ${ars(m * mep)} al dólar MEP`;
 }
+document.querySelectorAll('[data-mon]').forEach((b) => (b.onclick = () => {
+  monSim = b.dataset.mon;
+  document.querySelectorAll('[data-mon]').forEach((x) => x.classList.toggle('sec', x !== b));
+  $('sim-label').textContent = monSim === 'ARS' ? 'Monto a invertir ($)' : 'Monto a invertir (US$)';
+  $('sim-monto').value = monSim === 'ARS' ? Math.round(10000 * (mep || 1500) / 100000) * 100000 : 10000;
+  simular();
+}));
 $('sim-monto').addEventListener('input', simular);
 simular();
 
-const css = getComputedStyle(document.documentElement);
+// ── Gráfico ──
 new Chart($('grafico'), {
   type: 'line',
   data: {
     labels: d.serie.map((s) => s.fecha),
     datasets: [
-      { label: 'Valor de la cuotaparte', data: d.serie.map((s) => ({ x: s.fecha, y: s.precio })), borderColor: css.getPropertyValue('--mar').trim(), backgroundColor: 'rgba(42,157,143,.10)', fill: true, pointRadius: 0, tension: .25, borderWidth: 2.5 },
-      { label: 'Hoy', data: [{ x: d.hoy, y: d.precio_hoy }], borderColor: css.getPropertyValue('--tinta').trim(), backgroundColor: css.getPropertyValue('--arena').trim(), pointRadius: 7, pointHoverRadius: 8, borderWidth: 3, showLine: false },
+      { label: 'Valor de la cuotaparte', data: d.serie.map((s) => ({ x: s.fecha, y: s.precio })), borderColor: '#2A9D8F', backgroundColor: 'rgba(42,157,143,.10)', fill: true, pointRadius: 0, tension: .25, borderWidth: 2.5 },
+      { label: 'Hoy', data: [{ x: d.hoy, y: d.precio_hoy }], borderColor: '#0E3B43', backgroundColor: '#E9C46A', pointRadius: 7, pointHoverRadius: 8, borderWidth: 3, showLine: false },
     ],
   },
   options: {
     maintainAspectRatio: false,
+    animation: quieto ? false : { duration: 1400 },
     parsing: { xAxisKey: 'x', yAxisKey: 'y' },
     interaction: { mode: 'nearest', intersect: false },
-    plugins: { legend: { display: false }, tooltip: { callbacks: { title: (i) => fecha(i[0].raw.x), label: (i) => `${i.dataset.label}: ${precio(i.raw.y)}` } } },
+    plugins: { legend: { display: false }, tooltip: { callbacks: { title: (i) => fecha(i[0].raw.x), label: (i) => `${i.dataset.label}: ${precio(i.raw.y)}${mep ? ' · ' + ars2(i.raw.y * mep) + ' hoy' : ''}` } } },
     scales: {
       x: { type: 'category', labels: [...new Set([...d.serie.map((s) => s.fecha), d.hoy])].sort(), grid: { display: false }, ticks: { maxTicksLimit: 9, callback(v) { const f = this.getLabelForValue(v); return new Date(f + 'T12:00').toLocaleDateString('es-AR', { month: 'short', year: '2-digit' }); } } },
       y: { grid: { color: '#EFEAE0' }, ticks: { callback: (v) => 'US$ ' + v.toFixed(2) } },
     },
   },
 });
+
+// ── Elegí tu piso ──
+const porPiso = new Map();
+for (const u of d.unidades) {
+  const k = u.piso ?? 0;
+  if (!porPiso.has(k)) porPiso.set(k, []);
+  porPiso.get(k).push(u);
+}
+const pisos = [...porPiso.keys()].sort((a, b) => b - a);
+let pisoSel = pisos[pisos.length - 1];
+function dibujarAlzado() {
+  const svg = $('alzado');
+  if (!pisos.length) { svg.innerHTML = ''; $('piso-titulo').textContent = 'Todavía no hay unidades cargadas'; return; }
+  const alto = Math.min(56, 330 / pisos.length), H = pisos.length * alto + 70, arriba = 30;
+  svg.setAttribute('viewBox', `0 0 260 ${H}`);
+  let h = `<rect x="40" y="${arriba - 14}" width="180" height="14" fill="#0E3B43" rx="2"/>`;
+  pisos.forEach((k, i) => {
+    const y = arriba + i * alto, n = porPiso.get(k).length;
+    h += `<g class="p ${k === pisoSel ? 'sel' : ''}" data-piso="${k}" role="button" tabindex="0" aria-label="Piso ${k}">
+      <rect class="f" x="40" y="${y}" width="180" height="${alto - 3}" rx="3"/>
+      ${Array.from({ length: Math.min(n * 2, 6) }, (_, j) => `<rect class="vn" x="${100 + j * 18}" y="${y + alto / 2 - 7}" width="12" height="11" rx="1.5"/>`).join('')}
+      <text x="52" y="${y + alto / 2 + 3}">${k ? 'Piso ' + k : 'PB'}</text></g>`;
+  });
+  h += `<rect x="20" y="${H - 40}" width="220" height="6" fill="#0E3B43" rx="2"/>`;
+  svg.innerHTML = h;
+  svg.querySelectorAll('.p').forEach((el) => {
+    const ir = () => { pisoSel = Number(el.dataset.piso); dibujarAlzado(); };
+    el.onclick = ir;
+    el.onkeydown = (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); ir(); } };
+  });
+  const us = porPiso.get(pisoSel) || [];
+  $('piso-titulo').textContent = pisoSel ? `Piso ${pisoSel}` : 'Planta baja';
+  $('unidades').innerHTML = us.map((u) => `<div class="unidad">
+      <h3>${esc(u.nombre)}</h3><div class="tip">${esc(u.tipologia || '')}${u.m2 ? ` · ${u.m2} m²` : ''}${u.estado !== 'disponible' ? ` · <b>${esc(u.estado)}</b>` : ''}</div>
+      <div class="fila-u"><span>Cuotapartes</span><b>${cp(u.cuotapartes)}</b></div>
+      <div class="fila-u"><span>Valor hoy</span><b class="grande-u">${usd0(u.valor_hoy)}</b></div>
+      ${mep ? `<div class="fila-u"><span>En pesos</span><b>${ars(u.valor_hoy * mep)}</b></div>` : ''}
+      <div class="fila-u"><span>Estimado al final</span><b class="sube">${usd0(u.valor_final)}</b></div>
+    </div>`).join('');
+}
+dibujarAlzado();
+
+// ── Plan de obra (estimado, proporcional al plazo) ──
+const etapas = [['Proyecto y excavación', 0, .12], ['Estructura', .12, .5], ['Fachada y cerramientos', .5, .75], ['Instalaciones y terminaciones', .75, .95], ['Entrega', .95, 1]];
+const ini = new Date(p.fecha_inicio + 'T12:00'), fin = new Date(p.fecha_fin + 'T12:00');
+const enFecha = (k) => new Date(ini.getTime() + (fin - ini) * k).toLocaleDateString('es-AR', { month: 'short', year: 'numeric' });
+const av = d.avance_tiempo;
+$('obra').innerHTML = `<div class="hecho" style="width:${av * 100}%"></div><div class="hoy" style="left:${av * 100}%" title="Hoy"></div>` +
+  etapas.map(([t, a, b]) => `<div class="etapa"><b>${t}</b><span>${enFecha(a)} – ${enFecha(b)}</span></div>`).join('');
+$('obra-txt').textContent = `Del ${fecha(p.fecha_inicio)} al ${fecha(p.fecha_fin)}. El punto amarillo marca dónde estamos hoy.`;
 </script>
 </body>
 </html>
