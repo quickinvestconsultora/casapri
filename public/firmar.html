@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Firmar contrato — Casapri</title>
+<link rel="icon" href="/img/logo.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/estilo.css">
+<style>
+  .caja-firma { max-width: 820px; margin: 32px auto; }
+  .resumen-op { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin: 16px 0; }
+  .acepto { display: flex; gap: 10px; align-items: flex-start; margin: 18px 0; font-weight: 500; font-size: 14px; color: var(--texto); }
+  .acepto input { width: 20px; height: 20px; flex: none; margin-top: 1px; }
+</style>
+</head>
+<body>
+<header class="barra"><div class="contenedor"><span id="marca"></span></div></header>
+<main class="contenedor"><div class="caja-firma tarjeta" id="vista"><p class="tenue">Cargando contrato…</p></div></main>
+<script type="module">
+import { api, marcaHtml, usd, cp, precio, fechaHora, esc, TIPOS, etiquetaEstado, conBoton } from '/js/comun.js';
+document.getElementById('marca').innerHTML = marcaHtml;
+const vista = document.getElementById('vista');
+const t = new URLSearchParams(location.search).get('t') || '';
+
+try {
+  const o = await api('/firma/' + encodeURIComponent(t));
+  const datos = o.tipo === 'retiro'
+    ? [['Monto', usd(o.usd)], ['Comisión', usd(o.comision)], ['Recibís', usd(o.usd - o.comision)]]
+    : [['Cuotapartes', cp(o.cp)], ['Precio', precio(o.precio)], ['Total', usd(o.usd)]];
+  const pendiente = o.estado === 'firma_pendiente';
+  vista.innerHTML = `
+    <div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:center">
+      <h2 style="margin:0">${TIPOS[o.tipo]} N° ${o.id}</h2>${etiquetaEstado(o.estado)}</div>
+    <p class="tenue chico" style="margin-top:6px">${esc(o.nombre)} · ${esc(o.email)}${pendiente ? ` · el enlace vence el ${fechaHora(o.firma_vence)}` : ''}</p>
+    <div class="resumen-op">${datos.map(([k, v]) => `<div class="kpi"><div class="rot">${k}</div><div class="val" style="font-size:22px">${v}</div></div>`).join('')}</div>
+    <div class="contrato">${esc(o.contrato)}</div>
+    <p class="chico tenue" style="margin-top:8px">Código del contrato (SHA-256): <span style="word-break:break-all">${esc(o.contrato_hash)}</span></p>
+    ${pendiente ? `
+      <label class="acepto"><input type="checkbox" id="ok"> Leí el contrato y lo acepto. Entiendo que esta confirmación vale como mi firma electrónica.</label>
+      <button class="btn" id="firmar" disabled>Firmar contrato</button>`
+    : `<div class="aviso info" style="margin-top:16px">${o.firmado ? `Este contrato ya fue firmado el ${fechaHora(o.firmado)}.` : 'Esta operación ya no está esperando firma.'} <a href="/app">Ir a mi cuenta</a></div>`}`;
+  if (pendiente) {
+    const ok = document.getElementById('ok'), b = document.getElementById('firmar');
+    ok.onchange = () => (b.disabled = !ok.checked);
+    b.onclick = () => conBoton(b, async () => {
+      const r = await api('/firma/' + encodeURIComponent(t), { body: { acepto: true } });
+      vista.innerHTML = `<h2>¡Contrato firmado!</h2>
+        <p>${r.estado === 'confirmada' ? 'La operación quedó confirmada.' : 'La operación quedó en revisión. Te avisamos por mail cuando se complete.'}</p>
+        <p class="tenue">Te mandamos una copia del contrato firmado a tu mail.</p>
+        <a class="btn" href="/app">Ir a mi cuenta</a>`;
+    });
+  }
+} catch (e) {
+  vista.innerHTML = `<h2>No pudimos abrir el contrato</h2><p class="tenue">${esc(e.message)}</p><a class="btn sec" href="/app">Ir a mi cuenta</a>`;
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,20 @@
+{
+  "name": "casapri",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Plataforma de inversión en cuotapartes de un edificio en construcción",
+  "scripts": {
+    "start": "node server.mjs",
+    "dev": "node --watch server.mjs"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "dependencies": {
+    "@electric-sql/pglite": "^0.3.0",
+    "bcryptjs": "^3.0.2",
+    "express": "^5.1.0",
+    "pg": "^8.16.0"
+  }
+}

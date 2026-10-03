@@ -1,0 +1,325 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mi cuenta — Casapri</title>
+<link rel="icon" href="/img/logo.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/estilo.css">
+<style>
+  .acceso { max-width: 440px; margin: 48px auto; }
+  .bienvenida { display: flex; justify-content: space-between; align-items: end; gap: 12px; flex-wrap: wrap; margin: 28px 0 18px; }
+  .bienvenida h1 { font-size: clamp(1.6rem, 4vw, 2.2rem); margin: 0; }
+  .vista-previa { background: var(--fondo); border: 1px solid var(--borde); border-radius: 10px; padding: 12px 14px; margin-bottom: 14px; font-size: 14px; }
+  .vista-previa div { display: flex; justify-content: space-between; gap: 10px; padding: 2px 0; }
+  .banco div { display: flex; justify-content: space-between; gap: 10px; padding: 6px 0; border-bottom: 1px dashed var(--borde); font-size: 14px; }
+  .banco div:last-child { border: 0; }
+  .banco b { text-align: right; word-break: break-all; }
+  .pend { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; padding: 12px 0; border-bottom: 1px solid var(--borde); }
+  .pend:last-child { border: 0; }
+  .grafico { position: relative; height: 220px; }
+</style>
+</head>
+<body>
+<header class="barra"><div class="contenedor">
+  <span id="marca"></span>
+  <nav class="nav" id="nav"></nav>
+</div></header>
+<main class="contenedor" id="vista"><p class="tenue" style="margin-top:40px">Cargando…</p></main>
+<footer class="pie"><div class="contenedor"><span>Casapri · Casadei &amp; Pringles · Mar del Plata</span><span>¿Dudas? Escribinos.</span></div></footer>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script type="module">
+import { api, marcaHtml, usd, cp, precio, pct, fecha, fechaHora, esc, TIPOS, etiquetaEstado, toast, verContrato, conBoton } from '/js/comun.js';
+
+document.getElementById('marca').innerHTML = marcaHtml;
+const vista = document.getElementById('vista');
+const nav = document.getElementById('nav');
+let datos = null;
+let pestana = sessionStorage.getItem('pestana') || 'resumen';
+
+const params = new URLSearchParams(location.search);
+if (params.get('verificado') === '1') toast('¡Listo! Tu mail quedó confirmado.');
+if (params.get('verificado') === '0') toast('El enlace de confirmación venció o ya se usó.', true);
+if (params.has('verificado')) history.replaceState(null, '', '/app' + location.hash);
+
+function mostrarDevLink(r) {
+  if (r?.dev_link) toast('Modo local: el enlace del mail se abrió en otra pestaña.'), window.open(r.dev_link, '_blank');
+}
+
+// ───────── Acceso ─────────
+function vistaAcceso(modo) {
+  nav.innerHTML = '<a href="/">Inicio</a>';
+  const restablecer = location.hash.startsWith('#restablecer=') ? location.hash.slice(13) : null;
+  if (restablecer) modo = 'restablecer';
+  const formularios = {
+    ingresar: `<h2>Ingresar</h2>
+      <form id="f">
+        <div class="campo"><label>Mail</label><input name="email" type="email" autocomplete="email" required></div>
+        <div class="campo"><label>Contraseña</label><input name="password" type="password" autocomplete="current-password" required></div>
+        <button class="btn ancho">Ingresar</button>
+      </form>
+      <p class="chico" style="margin-top:16px;display:flex;justify-content:space-between"><a href="#registro">Crear cuenta</a><a href="#olvide">Olvidé mi contraseña</a></p>`,
+    registro: `<h2>Crear cuenta</h2>
+      <form id="f">
+        <div class="fila"><div class="campo"><label>Nombre</label><input name="nombre" autocomplete="given-name" required></div>
+        <div class="campo"><label>Apellido</label><input name="apellido" autocomplete="family-name" required></div></div>
+        <div class="campo"><label>Mail</label><input name="email" type="email" autocomplete="email" required><div class="ayuda">Acá vas a recibir y firmar tus contratos.</div></div>
+        <div class="campo"><label>Contraseña</label><input name="password" type="password" minlength="8" autocomplete="new-password" required><div class="ayuda">Mínimo 8 caracteres.</div></div>
+        <button class="btn ancho">Crear mi cuenta</button>
+      </form>
+      <p class="chico" style="margin-top:16px">¿Ya tenés cuenta? <a href="#ingresar">Ingresá</a></p>`,
+    olvide: `<h2>Recuperar contraseña</h2>
+      <form id="f">
+        <div class="campo"><label>Mail</label><input name="email" type="email" required></div>
+        <button class="btn ancho">Mandarme el enlace</button>
+      </form>
+      <p class="chico" style="margin-top:16px"><a href="#ingresar">Volver</a></p>`,
+    restablecer: `<h2>Nueva contraseña</h2>
+      <form id="f">
+        <div class="campo"><label>Contraseña nueva</label><input name="password" type="password" minlength="8" autocomplete="new-password" required></div>
+        <button class="btn ancho">Guardar</button>
+      </form>`,
+  };
+  vista.innerHTML = `<div class="acceso tarjeta">${formularios[modo] || formularios.ingresar}</div>`;
+  const f = document.getElementById('f');
+  f.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const body = Object.fromEntries(new FormData(f));
+    conBoton(f.querySelector('button'), async () => {
+      if (modo === 'registro') { const r = await api('/registro', { body }); mostrarDevLink(r); location.hash = ''; await cargar(); }
+      else if (modo === 'olvide') { const r = await api('/olvide', { body }); mostrarDevLink(r); toast('Si el mail está registrado, te mandamos un enlace.'); }
+      else if (modo === 'restablecer') { await api('/restablecer', { body: { ...body, token: restablecer } }); history.replaceState(null, '', '/app'); toast('Contraseña actualizada.'); await cargar(); }
+      else { await api('/ingresar', { body }); location.hash = ''; await cargar(); }
+    });
+  });
+}
+
+window.addEventListener('hashchange', () => { if (!datos) vistaAcceso(location.hash.slice(1)); });
+
+// ───────── Panel ─────────
+async function cargar() {
+  try {
+    datos = await api('/yo');
+  } catch (e) {
+    datos = null;
+    if (e.status === 401) return vistaAcceso(location.hash.slice(1) || 'ingresar');
+    vista.innerHTML = `<div class="aviso error" style="margin-top:32px">${esc(e.message)}</div>`;
+    return;
+  }
+  dibujarPanel();
+}
+
+function dibujarPanel() {
+  const { usuario: u, posicion: p } = datos;
+  nav.innerHTML = `${u.rol === 'admin' ? '<a href="/admin">Administración</a>' : ''}<a href="/">Proyecto</a><button class="btn sec chico" id="salir">Salir</button>`;
+  document.getElementById('salir').onclick = async () => { await api('/salir', { body: {} }); datos = null; vistaAcceso('ingresar'); };
+
+  const avisos = [];
+  if (!u.email_ok) avisos.push(`<div class="aviso alerta"><span>Confirmá tu mail <b>${esc(u.email)}</b> para poder operar.</span><button class="btn sec chico" id="reenviar">Reenviar mail</button></div>`);
+  else if (!u.documento || !u.domicilio) avisos.push(`<div class="aviso info"><span>Completá tu DNI/CUIT y domicilio para poder firmar contratos.</span><button class="btn sec chico" data-ir="perfil">Completar perfil</button></div>`);
+
+  const tabs = [['resumen', 'Resumen'], ['operar', 'Comprar / vender'], ['fondos', 'Ingresar / retirar'], ['movimientos', 'Movimientos'], ['perfil', 'Mi perfil']];
+  vista.innerHTML = `
+    <div class="bienvenida"><div><div class="tenue chico">Hola, ${esc(u.nombre)}</div><h1>Tu inversión</h1></div>
+      <div class="tenue chico">Cuotaparte hoy: <b class="num" style="color:var(--tinta)">${precio(datos.precio_hoy)}</b></div></div>
+    ${avisos.join('')}
+    <div class="pestanas" role="tablist">${tabs.map(([k, t]) => `<button role="tab" data-tab="${k}" aria-selected="${k === pestana}">${t}</button>`).join('')}</div>
+    <div id="contenido"></div>`;
+  vista.querySelectorAll('[data-tab]').forEach((b) => (b.onclick = () => irA(b.dataset.tab)));
+  vista.querySelectorAll('[data-ir]').forEach((b) => (b.onclick = () => irA(b.dataset.ir)));
+  const re = document.getElementById('reenviar');
+  if (re) re.onclick = () => conBoton(re, async () => { mostrarDevLink(await api('/reenviar-verificacion', { body: {} })); toast('Te reenviamos el mail.'); });
+  (({ resumen, operar, fondos, movimientos, perfil })[pestana] || resumen)();
+}
+
+function irA(t) {
+  pestana = t;
+  sessionStorage.setItem('pestana', t);
+  dibujarPanel();
+}
+const $c = () => document.getElementById('contenido');
+
+function filaOp(o, conAcciones) {
+  const monto = o.tipo === 'compra' || o.tipo === 'venta' ? `${cp(o.cp)} CP · ${usd(o.usd)}` : usd(o.usd);
+  return `<div class="pend"><div><b>${TIPOS[o.tipo]}</b> <span class="tenue">N° ${o.id}</span> ${etiquetaEstado(o.estado)}<div class="chico tenue">${monto} · ${fechaHora(o.creado)}</div></div>
+    ${conAcciones ? `<div style="display:flex;gap:6px;flex-wrap:wrap">
+      ${o.estado === 'firma_pendiente' ? `<button class="btn sec chico" data-reenviar="${o.id}">Reenviar mail de firma</button>` : ''}
+      ${o.tiene_contrato ? `<button class="btn sec chico" data-contrato="${o.id}">Ver contrato</button>` : ''}
+      ${o.estado === 'firma_pendiente' || (o.tipo === 'deposito' && o.estado === 'revision') ? `<button class="btn peligro chico" data-cancelar="${o.id}">Cancelar</button>` : ''}
+    </div>` : ''}</div>`;
+}
+
+function enlazarAcciones(raiz) {
+  raiz.querySelectorAll('[data-contrato]').forEach((b) => (b.onclick = () => verContrato(b.dataset.contrato)));
+  raiz.querySelectorAll('[data-reenviar]').forEach((b) => (b.onclick = () => conBoton(b, async () => { mostrarDevLink(await api(`/operaciones/${b.dataset.reenviar}/reenviar`, { body: {} })); toast('Te reenviamos el mail para firmar.'); })));
+  raiz.querySelectorAll('[data-cancelar]').forEach((b) => (b.onclick = () => conBoton(b, async () => { if (!confirm('¿Cancelar esta operación?')) return; await api(`/operaciones/${b.dataset.cancelar}/cancelar`, { body: {} }); toast('Operación cancelada.'); await cargar(); })));
+}
+
+function resumen() {
+  const { posicion: p, parametros: par } = datos;
+  const pendientes = datos.operaciones.filter((o) => o.estado === 'firma_pendiente' || o.estado === 'revision');
+  const rend = p.costo > 0 ? p.ganancia / p.costo : 0;
+  $c().innerHTML = `
+    <div class="grilla g4">
+      <div class="tarjeta kpi"><div class="rot">Valor de tus cuotapartes</div><div class="val">${usd(p.valor)}</div><div class="sub">${cp(p.cuotapartes)} cuotapartes</div></div>
+      <div class="tarjeta kpi"><div class="rot">Ganancia acumulada</div><div class="val ${p.ganancia > 0 ? 'sube' : ''}">${usd(p.ganancia)}</div><div class="sub">${p.costo > 0 ? pct(rend) + ' sobre lo invertido' : 'Todavía no compraste'}</div></div>
+      <div class="tarjeta kpi"><div class="rot">Saldo disponible</div><div class="val">${usd(p.saldo)}</div><div class="sub">para comprar o retirar</div></div>
+      <div class="tarjeta kpi"><div class="rot">Valor estimado al final</div><div class="val">${usd(p.valor_final_estimado)}</div><div class="sub">al ${fecha(par.fecha_fin)}, tasa ${pct(par.tasa_anual)}</div></div>
+    </div>
+    <div class="grilla g2" style="margin-top:16px">
+      <div class="tarjeta"><h3>Tu proyección</h3><div class="grafico"><canvas id="g"></canvas></div></div>
+      <div class="tarjeta"><h3>Pendientes</h3>${pendientes.length ? pendientes.map((o) => filaOp(o, true)).join('') : `<p class="tenue">No tenés operaciones pendientes.</p>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">${p.saldo > 0 ? '<button class="btn" data-ir="operar">Comprar cuotapartes</button>' : '<button class="btn" data-ir="fondos">Ingresar fondos</button>'}</div>`}</div>
+    </div>`;
+  $c().querySelectorAll('[data-ir]').forEach((b) => (b.onclick = () => irA(b.dataset.ir)));
+  enlazarAcciones($c());
+
+  // Proyección mensual del valor de sus cuotapartes actuales hasta el final.
+  const puntos = [];
+  const hoy = new Date(), fin = new Date(par.fecha_fin + 'T12:00');
+  const meses = Math.max(1, Math.round((fin - hoy) / 2629800000));
+  for (let i = 0; i <= meses; i++) {
+    const f = new Date(hoy.getFullYear(), hoy.getMonth() + i, Math.min(hoy.getDate(), 28));
+    if (f > fin) break;
+    puntos.push({ x: f.toLocaleDateString('es-AR', { month: 'short', year: '2-digit' }), y: p.cuotapartes * datos.precio_hoy * Math.pow(1 + par.tasa_anual, ((f - hoy) / 86400000) / 365) });
+  }
+  puntos.push({ x: fin.toLocaleDateString('es-AR', { month: 'short', year: '2-digit' }), y: p.valor_final_estimado });
+  new Chart(document.getElementById('g'), {
+    type: 'line',
+    data: { labels: puntos.map((x) => x.x), datasets: [{ data: puntos.map((x) => x.y), borderColor: '#2A9D8F', backgroundColor: 'rgba(42,157,143,.1)', fill: true, pointRadius: 0, tension: .25, borderWidth: 2.5 }] },
+    options: { maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { callbacks: { label: (i) => usd(i.raw) } } }, scales: { x: { grid: { display: false }, ticks: { maxTicksLimit: 6 } }, y: { grid: { color: '#EFEAE0' }, ticks: { callback: (v) => 'US$ ' + Number(v).toLocaleString('es-AR') } } } },
+  });
+}
+
+function operar() {
+  const { posicion: p, parametros: par, precio_hoy: ph, precio_final: pf } = datos;
+  $c().innerHTML = `
+    <div class="grilla g2">
+      <div class="tarjeta"><h3>Comprar cuotapartes</h3>
+        <p class="tenue chico">Saldo disponible: <b>${usd(p.saldo)}</b> · Compra mínima ${usd(par.min_compra_usd)}</p>
+        <form id="fc"><div class="campo"><label>Monto a invertir (US$)</label><input name="usd" type="number" min="${par.min_compra_usd}" step="0.01" inputmode="decimal" required></div>
+        <div class="vista-previa" id="pc"></div>
+        <button class="btn ancho">Continuar y recibir contrato</button></form>
+        <p class="chico tenue" style="margin-top:10px">Te mandamos el contrato por mail. La compra se hace cuando lo firmás.</p>
+      </div>
+      <div class="tarjeta"><h3>Vender cuotapartes</h3>
+        <p class="tenue chico">Tenés <b>${cp(p.cuotapartes)}</b> cuotapartes disponibles.</p>
+        <form id="fv"><div class="campo"><label>Cuotapartes a vender</label>
+          <div style="display:flex;gap:8px"><input name="cp" type="number" min="0" step="0.0001" inputmode="decimal" required><button type="button" class="btn sec" id="todo">Todo</button></div></div>
+        <div class="vista-previa" id="pv"></div>
+        <button class="btn ancho mar">Continuar y recibir contrato</button></form>
+        <p class="chico tenue" style="margin-top:10px">${par.venta_requiere_aprobacion ? 'Después de firmar, la venta se acredita cuando la aprueba el desarrollador.' : 'Después de firmar, se acredita en tu saldo.'}</p>
+      </div>
+    </div>`;
+  const fc = document.getElementById('fc'), fv = document.getElementById('fv');
+  const prevC = () => {
+    const m = Number(fc.usd.value) || 0, c = m / ph;
+    document.getElementById('pc').innerHTML = `<div><span>Valor cuotaparte hoy</span><b>${precio(ph)}</b></div><div><span>Recibís</span><b>${cp(c)} CP</b></div><div><span>Valor estimado al final</span><b class="sube">${usd(c * pf)}</b></div>`;
+  };
+  const prevV = () => {
+    const c = Number(fv.cp.value) || 0;
+    document.getElementById('pv').innerHTML = `<div><span>Valor cuotaparte hoy</span><b>${precio(ph)}</b></div><div><span>Recibís</span><b>${usd(Math.floor(c * ph * 100) / 100)}</b></div>`;
+  };
+  fc.usd.oninput = prevC; fv.cp.oninput = prevV; prevC(); prevV();
+  document.getElementById('todo').onclick = () => { fv.cp.value = p.cuotapartes; prevV(); };
+  const enviar = (f, url, campo) => f.addEventListener('submit', (e) => {
+    e.preventDefault();
+    conBoton(f.querySelector('button:not([type=button])'), async () => {
+      const r = await api(url, { body: { [campo]: Number(f[campo].value) } });
+      mostrarDevLink(r);
+      toast('Listo. Revisá tu mail para leer y firmar el contrato.');
+      pestana = 'resumen'; await cargar();
+    });
+  });
+  enviar(fc, '/compras', 'usd'); enviar(fv, '/ventas', 'cp');
+}
+
+function fondos() {
+  const { posicion: p, parametros: par, banco: b, usuario: u } = datos;
+  const datosBanco = [['Titular', b.titular], ['Banco', b.nombre], ['CBU', b.cbu], ['Alias', b.alias], [b.usdt_red ? `USDT (${b.usdt_red})` : '', b.usdt_direccion]].filter(([k, v]) => k && v);
+  $c().innerHTML = `
+    <div class="grilla g2">
+      <div class="tarjeta"><h3>Ingresar fondos <span class="etiqueta confirmada">Sin costo</span></h3>
+        <p class="tenue chico">Transferí dólares a esta cuenta y después informá la transferencia acá. Lo acreditamos al verificarla.</p>
+        <div class="banco vista-previa">${datosBanco.length ? datosBanco.map(([k, v]) => `<div><span>${esc(k)}</span><b>${esc(v)}</b></div>`).join('') : '<span class="tenue">Los datos bancarios se publican en breve.</span>'}</div>
+        <form id="fd"><div class="fila"><div class="campo"><label>Monto transferido (US$)</label><input name="usd" type="number" min="1" step="0.01" required></div>
+        <div class="campo"><label>N° de operación / comprobante</label><input name="referencia" required maxlength="200"></div></div>
+        <button class="btn ancho">Informar transferencia</button></form>
+      </div>
+      <div class="tarjeta"><h3>Retirar fondos <span class="etiqueta">${pct(par.comision_retiro)} de comisión</span></h3>
+        <p class="tenue chico">Saldo disponible: <b>${usd(p.saldo)}</b>. ${u.cbu ? `Se transfiere a <b>${esc(u.cbu)}</b>.` : 'Primero cargá tu CBU/CVU o alias en «Mi perfil».'}</p>
+        <p class="tenue chico">Si querés retirar lo invertido en cuotapartes, primero vendelas.</p>
+        <form id="fr"><div class="campo"><label>Monto a retirar (US$)</label>
+          <div style="display:flex;gap:8px"><input name="usd" type="number" min="1" step="0.01" required><button type="button" class="btn sec" id="todo">Todo</button></div></div>
+        <div class="vista-previa" id="pr"></div>
+        <button class="btn ancho" ${u.cbu ? '' : 'disabled'}>Continuar y recibir confirmación</button></form>
+      </div>
+    </div>`;
+  const fd = document.getElementById('fd'), fr = document.getElementById('fr');
+  fd.addEventListener('submit', (e) => {
+    e.preventDefault();
+    conBoton(fd.querySelector('button'), async () => {
+      await api('/depositos', { body: { usd: Number(fd.usd.value), referencia: fd.referencia.value } });
+      toast('Recibimos tu aviso. Te avisamos por mail cuando se acredite.');
+      pestana = 'resumen'; await cargar();
+    });
+  });
+  const prevR = () => {
+    const m = Number(fr.usd.value) || 0, c = Math.round(m * par.comision_retiro * 100) / 100;
+    document.getElementById('pr').innerHTML = `<div><span>Comisión (${pct(par.comision_retiro)})</span><b>${usd(c)}</b></div><div><span>Recibís</span><b>${usd(m - c)}</b></div>`;
+  };
+  fr.usd.oninput = prevR; prevR();
+  document.getElementById('todo').onclick = () => { fr.usd.value = p.saldo; prevR(); };
+  fr.addEventListener('submit', (e) => {
+    e.preventDefault();
+    conBoton(fr.querySelector('button:not([type=button])'), async () => {
+      mostrarDevLink(await api('/retiros', { body: { usd: Number(fr.usd.value) } }));
+      toast('Revisá tu mail para confirmar el retiro.');
+      pestana = 'resumen'; await cargar();
+    });
+  });
+}
+
+function movimientos() {
+  const ops = datos.operaciones;
+  $c().innerHTML = `<div class="tarjeta" style="padding:6px"><div class="tabla-env"><table>
+    <thead><tr><th>Fecha</th><th>Operación</th><th class="der">Cuotapartes</th><th class="der">Precio</th><th class="der">Monto</th><th>Estado</th><th></th></tr></thead>
+    <tbody>${ops.length ? ops.map((o) => `<tr>
+      <td class="num">${fecha(o.creado)}</td><td><b>${TIPOS[o.tipo]}</b> <span class="tenue chico">N° ${o.id}</span>${o.nota_admin ? `<div class="chico tenue">${esc(o.nota_admin)}</div>` : ''}</td>
+      <td class="der num">${o.cp ? cp(o.cp) : ''}</td><td class="der num">${o.precio ? precio(o.precio) : ''}</td>
+      <td class="der num">${usd(o.usd)}${o.comision ? `<div class="chico tenue">comisión ${usd(o.comision)}</div>` : ''}</td>
+      <td>${etiquetaEstado(o.estado)}</td>
+      <td>${o.tiene_contrato ? `<button class="btn sec chico" data-contrato="${o.id}">Contrato</button>` : ''}</td></tr>`).join('') : '<tr><td colspan="7" class="tenue">Todavía no hay movimientos.</td></tr>'}</tbody>
+  </table></div></div>`;
+  enlazarAcciones($c());
+}
+
+function perfil() {
+  const u = datos.usuario;
+  const v = (k) => esc(u[k] || '');
+  $c().innerHTML = `<div class="tarjeta" style="max-width:640px"><h3>Mis datos</h3>
+    <p class="tenue chico">Estos datos van en tus contratos. Mail: <b>${esc(u.email)}</b></p>
+    <form id="fp">
+      <div class="fila"><div class="campo"><label>Nombre</label><input name="nombre" value="${v('nombre')}" required></div>
+      <div class="campo"><label>Apellido</label><input name="apellido" value="${v('apellido')}" required></div></div>
+      <div class="fila"><div class="campo"><label>DNI o CUIT</label><input name="documento" value="${v('documento')}" required></div>
+      <div class="campo"><label>Teléfono</label><input name="telefono" value="${v('telefono')}" type="tel"></div></div>
+      <div class="campo"><label>Domicilio</label><input name="domicilio" value="${v('domicilio')}" required></div>
+      <div class="campo"><label>CBU / CVU / alias para retiros</label><input name="cbu" value="${v('cbu')}"><div class="ayuda">Tiene que ser una cuenta a tu nombre.</div></div>
+      <button class="btn">Guardar</button>
+    </form></div>`;
+  const f = document.getElementById('fp');
+  f.addEventListener('submit', (e) => {
+    e.preventDefault();
+    conBoton(f.querySelector('button'), async () => { await api('/perfil', { method: 'PUT', body: Object.fromEntries(new FormData(f)) }); toast('Datos guardados.'); await cargar(); });
+  });
+}
+
+cargar();
+</script>
+</body>
+</html>

@@ -1,0 +1,199 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Administración — Casapri</title>
+<link rel="icon" href="/img/logo.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/estilo.css">
+<style>
+  .titulo { margin: 28px 0 18px; display: flex; justify-content: space-between; align-items: end; gap: 12px; flex-wrap: wrap; }
+  .titulo h1 { font-size: 2rem; margin: 0; }
+  .grafico { position: relative; height: 260px; }
+  td input, td select { padding: 7px 8px; font-size: 14px; border-radius: 8px; min-width: 70px; }
+  .seccion-cfg h3 { margin-top: 8px; }
+</style>
+</head>
+<body>
+<header class="barra"><div class="contenedor"><span id="marca"></span>
+  <nav class="nav"><a href="/app">Mi cuenta</a><a href="/">Sitio</a></nav></div></header>
+<main class="contenedor" id="vista"><p class="tenue" style="margin-top:40px">Cargando…</p></main>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script type="module">
+import { api, marcaHtml, usd, usd0, cp, precio, pct, fecha, fechaHora, esc, TIPOS, etiquetaEstado, toast, verContrato, conBoton } from '/js/comun.js';
+document.getElementById('marca').innerHTML = marcaHtml;
+const vista = document.getElementById('vista');
+let pestana = sessionStorage.getItem('pestana-admin') || 'pendientes';
+
+async function dibujar() {
+  let r;
+  try { r = await api('/admin/resumen'); } catch (e) {
+    vista.innerHTML = e.status === 401 ? '<div class="aviso alerta" style="margin-top:32px">Tenés que <a href="/app">ingresar</a> primero.</div>' : `<div class="aviso error" style="margin-top:32px">${esc(e.message)}</div>`;
+    return;
+  }
+  const tabs = [['pendientes', `Pendientes${r.pendientes.length ? ` (${r.pendientes.length})` : ''}`], ['estadisticas', 'Estadísticas'], ['inversores', 'Inversores'], ['operaciones', 'Operaciones'], ['unidades', 'Unidades'], ['config', 'Configuración']];
+  vista.innerHTML = `<div class="titulo"><h1>Administración</h1><span class="tenue chico">Cuotaparte hoy: <b class="num" style="color:var(--tinta)">${precio(r.precio_hoy)}</b></span></div>
+    <div class="pestanas">${tabs.map(([k, t]) => `<button data-tab="${k}" aria-selected="${k === pestana}">${t}</button>`).join('')}</div>
+    <div id="c"></div>`;
+  vista.querySelectorAll('[data-tab]').forEach((b) => (b.onclick = () => { pestana = b.dataset.tab; sessionStorage.setItem('pestana-admin', pestana); dibujar(); }));
+  const c = document.getElementById('c');
+  ({ pendientes, estadisticas, inversores, operaciones, unidades, config }[pestana] || pendientes)(c, r);
+}
+
+function pendientes(c, r) {
+  if (!r.pendientes.length) { c.innerHTML = '<div class="tarjeta"><p class="tenue" style="margin:0">No hay nada pendiente de aprobar.</p></div>'; return; }
+  c.innerHTML = r.pendientes.map((o) => `<div class="tarjeta" style="margin-bottom:12px">
+    <div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap">
+      <div><h3 style="margin:0">${TIPOS[o.tipo]} N° ${o.id} · ${usd(o.usd)}</h3>
+        <div class="tenue chico">${esc(o.nombre)} · ${esc(o.email)} · ${fechaHora(o.creado)}</div>
+        <div class="chico" style="margin-top:6px">${
+          o.tipo === 'deposito' ? `Referencia: <b>${esc(o.referencia)}</b> — verificá que el dinero haya entrado antes de aprobar.`
+          : o.tipo === 'retiro' ? `Transferir <b>${usd(o.usd - o.comision)}</b> a <b>${esc(o.cbu)}</b> (comisión ${usd(o.comision)}). Aprobá cuando esté transferido.`
+          : `Vende ${cp(o.cp)} CP a ${precio(o.precio)}. Al aprobar se acreditan ${usd(o.usd)} en su saldo.`}</div></div>
+      <div style="display:flex;gap:6px;align-items:start;flex-wrap:wrap">
+        ${o.tiene_contrato ? `<button class="btn sec chico" data-contrato="${o.id}">Contrato</button>` : ''}
+        <button class="btn chico" data-aprobar="${o.id}" data-tipo="${o.tipo}" data-usd="${o.usd}">${o.tipo === 'retiro' ? 'Marcar transferido' : 'Aprobar'}</button>
+        <button class="btn peligro chico" data-rechazar="${o.id}">Rechazar</button>
+      </div></div></div>`).join('');
+  c.querySelectorAll('[data-contrato]').forEach((b) => (b.onclick = () => verContrato(b.dataset.contrato)));
+  c.querySelectorAll('[data-aprobar]').forEach((b) => (b.onclick = () => conBoton(b, async () => {
+    const body = {};
+    if (b.dataset.tipo === 'deposito') {
+      const m = prompt('Monto efectivamente recibido (US$):', b.dataset.usd);
+      if (m === null) return;
+      body.usd = Number(m.replace(',', '.'));
+    } else if (!confirm('¿Confirmás?')) return;
+    await api(`/admin/operaciones/${b.dataset.aprobar}/aprobar`, { body });
+    toast('Operación aprobada. Le avisamos por mail.');
+    dibujar();
+  })));
+  c.querySelectorAll('[data-rechazar]').forEach((b) => (b.onclick = () => conBoton(b, async () => {
+    const nota = prompt('Motivo del rechazo (le llega por mail):');
+    if (nota === null) return;
+    await api(`/admin/operaciones/${b.dataset.rechazar}/rechazar`, { body: { nota } });
+    toast('Operación rechazada.');
+    dibujar();
+  })));
+}
+
+function estadisticas(c, r) {
+  const s = r.stats;
+  const k = (rot, val, sub = '') => `<div class="tarjeta kpi"><div class="rot">${rot}</div><div class="val">${val}</div><div class="sub">${sub}</div></div>`;
+  c.innerHTML = `<div class="grilla g4">
+      ${k('Inversores', s.usuarios, `${s.verificados} con mail confirmado`)}
+      ${k('Fondos ingresados', usd0(s.depositado), `retirados ${usd0(s.retirado)}`)}
+      ${k('Capital en obra', usd0(s.capital_en_obra), `compras netas de ventas`)}
+      ${k('Compromiso a valor de hoy', usd0(s.pasivo_a_valor_hoy), 'CP en manos de inversores × valor hoy')}
+      ${k('Cuotapartes suscriptas', cp(s.cp_emitidas), `de ${cp(s.cp_total)} (${pct(s.cp_total ? s.cp_emitidas / s.cp_total : 0, 1)})`)}
+      ${k('Fondos en custodia', usd0(s.fondos_en_custodia), 'ingresos − retiros')}
+      ${k('Comisiones cobradas', usd(s.comisiones), 'por retiros')}
+      ${k('Ventas recompradas', usd0(s.vendido), '')}
+    </div>
+    <div class="tarjeta" style="margin-top:16px"><h3>Movimientos confirmados por mes</h3><div class="grafico"><canvas id="g"></canvas></div></div>`;
+  const meses = [...new Set(r.mensual.map((m) => m.mes))];
+  const serie = (t) => meses.map((m) => r.mensual.find((x) => x.mes === m && x.tipo === t)?.usd || 0);
+  new Chart(document.getElementById('g'), {
+    type: 'bar',
+    data: { labels: meses, datasets: [
+      { label: 'Depósitos', data: serie('deposito'), backgroundColor: '#2A9D8F' },
+      { label: 'Compras', data: serie('compra'), backgroundColor: '#0E3B43' },
+      { label: 'Ventas', data: serie('venta'), backgroundColor: '#E9C46A' },
+      { label: 'Retiros', data: serie('retiro'), backgroundColor: '#B3412F' },
+    ] },
+    options: { maintainAspectRatio: false, plugins: { tooltip: { callbacks: { label: (i) => `${i.dataset.label}: ${usd(i.raw)}` } } }, scales: { x: { grid: { display: false } }, y: { grid: { color: '#EFEAE0' } } } },
+  });
+}
+
+async function inversores(c) {
+  const lista = await api('/admin/inversores');
+  c.innerHTML = `<div class="tarjeta" style="padding:6px"><div class="tabla-env"><table>
+    <thead><tr><th>Inversor</th><th>DNI/CUIT</th><th>Alta</th><th class="der">Saldo</th><th class="der">Cuotapartes</th><th class="der">Valor hoy</th><th>Estado</th></tr></thead>
+    <tbody>${lista.map((u) => `<tr><td><b>${esc(u.nombre)} ${esc(u.apellido)}</b>${u.rol === 'admin' ? ' <span class="etiqueta">admin</span>' : ''}<div class="chico tenue">${esc(u.email)}${u.telefono ? ' · ' + esc(u.telefono) : ''}</div></td>
+      <td>${esc(u.documento || '—')}</td><td class="num">${fecha(u.creado)}</td>
+      <td class="der num">${usd(u.saldo)}</td><td class="der num">${cp(u.cuotapartes)}</td><td class="der num"><b>${usd(u.valor)}</b></td>
+      <td>${u.email_ok ? '<span class="etiqueta confirmada">Mail OK</span>' : '<span class="etiqueta revision">Sin confirmar</span>'}</td></tr>`).join('')}</tbody>
+  </table></div></div>`;
+}
+
+async function operaciones(c) {
+  const ops = await api('/admin/operaciones');
+  c.innerHTML = `<div class="tarjeta" style="padding:6px"><div class="tabla-env"><table>
+    <thead><tr><th>Fecha</th><th>Operación</th><th>Inversor</th><th class="der">CP</th><th class="der">Monto</th><th>Estado</th><th></th></tr></thead>
+    <tbody>${ops.length ? ops.map((o) => `<tr><td class="num">${fechaHora(o.creado)}</td><td><b>${TIPOS[o.tipo]}</b> <span class="chico tenue">N° ${o.id}</span></td>
+      <td>${esc(o.nombre)}<div class="chico tenue">${esc(o.email)}</div></td><td class="der num">${o.cp ? cp(o.cp) : ''}</td>
+      <td class="der num">${usd(o.usd)}</td><td>${etiquetaEstado(o.estado)}</td>
+      <td>${o.tiene_contrato ? `<button class="btn sec chico" data-contrato="${o.id}">Contrato</button>` : ''}</td></tr>`).join('') : '<tr><td colspan="7" class="tenue">Sin operaciones.</td></tr>'}</tbody>
+  </table></div></div>`;
+  c.querySelectorAll('[data-contrato]').forEach((b) => (b.onclick = () => verContrato(b.dataset.contrato)));
+}
+
+async function unidades(c) {
+  const [lista, pub] = await Promise.all([api('/admin/unidades'), api('/publico')]);
+  const fila = (u = {}) => `<tr data-id="${u.id || ''}">
+    <td><input name="nombre" value="${esc(u.nombre || '')}" placeholder="1°A"></td>
+    <td><input name="piso" type="number" value="${u.piso ?? ''}" style="width:70px"></td>
+    <td><input name="tipologia" value="${esc(u.tipologia || '')}" placeholder="2 ambientes"></td>
+    <td><input name="m2" type="number" step="0.01" value="${u.m2 ?? ''}" style="width:90px"></td>
+    <td><input name="cuotapartes" type="number" value="${u.cuotapartes ?? ''}" style="width:110px"></td>
+    <td class="der num">${u.cuotapartes ? usd0(u.cuotapartes * pub.precio_hoy) : ''}</td>
+    <td><select name="estado">${['disponible', 'reservada', 'retirada'].map((e) => `<option ${u.estado === e ? 'selected' : ''}>${e}</option>`).join('')}</select></td>
+    <td><input name="orden" type="number" value="${u.orden ?? 0}" style="width:70px"></td>
+    <td style="white-space:nowrap"><button class="btn chico" data-guardar>Guardar</button> ${u.id ? '<button class="btn peligro chico" data-borrar>Borrar</button>' : ''}</td></tr>`;
+  const total = lista.filter((u) => u.estado !== 'retirada').reduce((a, u) => a + u.cuotapartes, 0);
+  c.innerHTML = `<p class="tenue">Cada unidad equivale a una cantidad fija de cuotapartes. El total de cuotapartes que se pueden vender es la suma de las unidades no retiradas: <b>${cp(total)}</b> (${usd0(total * pub.precio_hoy)} a valor de hoy).</p>
+    <div class="tarjeta" style="padding:6px"><div class="tabla-env"><table>
+    <thead><tr><th>Unidad</th><th>Piso</th><th>Tipología</th><th>m²</th><th>Cuotapartes</th><th class="der">Valor hoy</th><th>Estado</th><th>Orden</th><th></th></tr></thead>
+    <tbody>${lista.map(fila).join('')}${fila()}</tbody></table></div></div>`;
+  c.querySelectorAll('[data-guardar]').forEach((b) => (b.onclick = () => conBoton(b, async () => {
+    const tr = b.closest('tr');
+    const body = Object.fromEntries([...tr.querySelectorAll('input,select')].map((i) => [i.name, i.value]));
+    if (tr.dataset.id) await api('/admin/unidades/' + tr.dataset.id, { method: 'PUT', body });
+    else await api('/admin/unidades', { body });
+    toast('Unidad guardada.');
+    unidades(c);
+  })));
+  c.querySelectorAll('[data-borrar]').forEach((b) => (b.onclick = () => conBoton(b, async () => {
+    if (!confirm('¿Borrar esta unidad?')) return;
+    await api('/admin/unidades/' + b.closest('tr').dataset.id, { method: 'DELETE', body: {} });
+    unidades(c);
+  })));
+}
+
+async function config(c) {
+  const cfg = await api('/admin/config');
+  const campo = (k, rot, ayuda = '', tipo = 'text') => `<div class="campo"><label>${rot}</label><input name="${k}" type="${tipo}" value="${esc(cfg[k])}" step="any">${ayuda ? `<div class="ayuda">${ayuda}</div>` : ''}</div>`;
+  c.innerHTML = `<form id="fc" class="grilla g2">
+    <div class="tarjeta seccion-cfg"><h3>Proyecto</h3>
+      ${campo('nombre_proyecto', 'Nombre del proyecto')}${campo('ciudad', 'Ciudad')}
+      ${campo('emisor', 'Desarrollador (aparece en los contratos)')}${campo('garante', 'Garante')}</div>
+    <div class="tarjeta seccion-cfg"><h3>Cuotaparte</h3>
+      <div class="fila">${campo('valor_inicial', 'Valor inicial (US$)', '', 'number')}${campo('tasa_anual', 'Tasa anual', '0.09 = 9%', 'number')}</div>
+      <div class="fila">${campo('fecha_inicio', 'Fecha de inicio', '', 'date')}${campo('fecha_fin', 'Fecha de fin', '', 'date')}</div>
+      <div class="aviso alerta chico">Cambiar valor inicial, tasa o fecha de inicio cambia el valor de la cuotaparte para todos, incluso para quienes ya compraron.</div></div>
+    <div class="tarjeta seccion-cfg"><h3>Operación</h3>
+      <div class="fila">${campo('comision_retiro', 'Comisión de retiro', '0.005 = 0,5%', 'number')}${campo('min_compra_usd', 'Compra mínima (US$)', '', 'number')}</div>
+      ${campo('firma_horas', 'Horas para firmar un contrato', '', 'number')}
+      <label class="acepto" style="display:flex;gap:8px;align-items:center;font-weight:500"><input type="checkbox" name="venta_requiere_aprobacion" ${cfg.venta_requiere_aprobacion ? 'checked' : ''} style="width:18px;height:18px"> Las ventas requieren aprobación</label></div>
+    <div class="tarjeta seccion-cfg"><h3>Cuenta para recibir fondos</h3>
+      ${campo('banco_titular', 'Titular')}${campo('banco_nombre', 'Banco')}
+      <div class="fila">${campo('banco_cbu', 'CBU')}${campo('banco_alias', 'Alias')}</div>
+      <div class="fila">${campo('usdt_red', 'Red USDT (opcional)', 'Ej: TRC20')}${campo('usdt_direccion', 'Dirección USDT (opcional)')}</div></div>
+    <div><button class="btn">Guardar configuración</button></div>
+  </form>`;
+  const f = document.getElementById('fc');
+  f.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const body = Object.fromEntries([...f.querySelectorAll('input')].map((i) => [i.name, i.type === 'checkbox' ? i.checked : i.value]));
+    conBoton(f.querySelector('button'), async () => { await api('/admin/config', { method: 'PUT', body }); toast('Configuración guardada.'); });
+  });
+}
+
+dibujar();
+</script>
+</body>
+</html>

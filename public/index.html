@@ -1,0 +1,209 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Casapri — Invertí en ladrillo con cuotapartes</title>
+<meta name="description" content="Comprá cuotapartes de un edificio en construcción en Mar del Plata. Valor actualizado día a día, ingreso sin costo y contratos firmados por mail.">
+<link rel="icon" href="/img/logo.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/estilo.css">
+<style>
+  .hero { padding: 56px 0 32px; display: grid; grid-template-columns: 1.15fr .85fr; gap: 40px; align-items: center; }
+  .hero p.bajada { font-size: 18px; color: var(--tenue); max-width: 34em; }
+  .hero .acciones { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 22px; }
+  .cotiz { background: var(--tinta); color: #fff; border-radius: 20px; padding: 26px; box-shadow: var(--sombra); position: relative; overflow: hidden; }
+  .cotiz::after { content: ''; position: absolute; right: -60px; bottom: -60px; width: 200px; height: 200px; border-radius: 50%; background: radial-gradient(circle, rgba(42,157,143,.45), transparent 70%); }
+  .cotiz .rot { font-size: 12px; text-transform: uppercase; letter-spacing: .08em; opacity: .75; font-weight: 600; }
+  .cotiz .grande { font-family: var(--serif); font-size: clamp(32px, 9vw, 46px); white-space: nowrap; margin: 4px 0 2px; font-variant-numeric: tabular-nums; }
+  .cotiz .linea { display: flex; justify-content: space-between; border-top: 1px solid rgba(255,255,255,.14); padding-top: 12px; margin-top: 14px; font-size: 14px; }
+  .cotiz .linea span:first-child { opacity: .75; }
+  .barra-prog { height: 8px; border-radius: 99px; background: rgba(255,255,255,.15); overflow: hidden; margin-top: 6px; }
+  .barra-prog i { display: block; height: 100%; background: var(--arena); border-radius: 99px; }
+  section { padding: 36px 0; }
+  .seccion-titulo { display: flex; justify-content: space-between; align-items: end; gap: 16px; flex-wrap: wrap; margin-bottom: 18px; }
+  .seccion-titulo p { margin: 0; color: var(--tenue); max-width: 40em; }
+  .paso b { display: inline-flex; width: 30px; height: 30px; border-radius: 50%; background: var(--arena-suave); color: var(--tinta); align-items: center; justify-content: center; font-family: var(--serif); margin-bottom: 10px; }
+  .garante { background: var(--arena-suave); border-color: #F0DDA7; display: grid; grid-template-columns: auto 1fr; gap: 20px; align-items: center; }
+  .escudo { width: 56px; height: 56px; border-radius: 14px; background: var(--tinta); display: grid; place-items: center; }
+  .grafico { position: relative; height: 320px; }
+  .calc { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; align-items: center; }
+  @media (max-width: 860px) { .hero, .calc { grid-template-columns: 1fr; } .hero { padding-top: 32px; } }
+  @media (max-width: 600px) { .garante { grid-template-columns: 1fr; } .nav .ocultar-movil { display: none; } }
+</style>
+</head>
+<body>
+<header class="barra"><div class="contenedor">
+  <span id="marca"></span>
+  <nav class="nav">
+    <a class="ocultar-movil" href="#unidades">Unidades</a>
+    <a class="ocultar-movil" href="#como">Cómo funciona</a>
+    <a href="/app">Ingresar</a>
+    <a class="btn" href="/app#registro">Invertir</a>
+  </nav>
+</div></header>
+
+<main class="contenedor">
+  <div class="hero">
+    <div>
+      <span class="etiqueta" id="proyecto-tag">Mar del Plata</span>
+      <h1 style="margin-top:14px">Invertí en ladrillo, de a una cuotaparte.</h1>
+      <p class="bajada">Comprá cuotapartes de un edificio en construcción. Su valor sube todos los días a una tasa de referencia del <b id="tasa-hero">9%</b> anual, y podés vender y retirar cuando quieras.</p>
+      <div class="acciones">
+        <a class="btn" href="/app#registro">Crear mi cuenta</a>
+        <a class="btn sec" href="#calculadora">Simular mi inversión</a>
+      </div>
+      <p class="chico tenue" style="margin-top:16px">Ingreso de fondos sin costo · Retiros con <span id="com-hero">0,5%</span> de comisión · Contratos firmados por mail</p>
+    </div>
+    <div class="cotiz">
+      <div class="rot">Valor de la cuotaparte hoy</div>
+      <div class="grande" id="precio-hoy">—</div>
+      <div class="chico" style="opacity:.8" id="precio-sub">&nbsp;</div>
+      <div class="linea"><span>Valor inicial</span><b class="num" id="precio-ini">—</b></div>
+      <div class="linea"><span>Valor estimado al final</span><b class="num" id="precio-fin">—</b></div>
+      <div class="linea"><span>Valor del edificio hoy</span><b class="num" id="valor-edif">—</b></div>
+      <div style="margin-top:16px">
+        <div class="chico" style="display:flex;justify-content:space-between;opacity:.85"><span>Cuotapartes suscriptas</span><span id="pct-vendido">—</span></div>
+        <div class="barra-prog"><i id="barra-vendido" style="width:0"></i></div>
+      </div>
+    </div>
+  </div>
+
+  <section>
+    <div class="grilla g4" id="kpis"></div>
+  </section>
+
+  <section>
+    <div class="seccion-titulo">
+      <div><h2>Evolución del valor de la cuotaparte</h2>
+      <p>Desde el inicio hasta la entrega estimada. El punto marca el valor de hoy.</p></div>
+    </div>
+    <div class="tarjeta"><div class="grafico"><canvas id="grafico"></canvas></div></div>
+  </section>
+
+  <section id="unidades">
+    <div class="seccion-titulo">
+      <div><h2>Unidades del edificio</h2>
+      <p>Cada departamento equivale a una cantidad fija de cuotapartes. Su valor en dólares es esa cantidad por el valor de la cuotaparte del día.</p></div>
+    </div>
+    <div class="tarjeta" style="padding:6px"><div class="tabla-env"><table>
+      <thead><tr><th>Unidad</th><th>Tipología</th><th class="der">m²</th><th class="der">Cuotapartes</th><th class="der">Valor hoy</th><th class="der">Valor estimado al final</th></tr></thead>
+      <tbody id="tabla-unidades"><tr><td colspan="6" class="tenue">Cargando…</td></tr></tbody>
+    </table></div></div>
+  </section>
+
+  <section id="calculadora">
+    <div class="tarjeta calc">
+      <div>
+        <h2>Simulá tu inversión</h2>
+        <p class="tenue">Calculá cuántas cuotapartes comprás hoy y cuánto valdrían al final de la obra, a la tasa de referencia.</p>
+        <div class="campo"><label for="sim-monto">Monto a invertir (US$)</label><input id="sim-monto" type="number" min="0" step="100" value="10000" inputmode="decimal"></div>
+      </div>
+      <div class="grilla g2">
+        <div class="kpi"><div class="rot">Cuotapartes hoy</div><div class="val" id="sim-cp">—</div></div>
+        <div class="kpi"><div class="rot">Valor estimado al final</div><div class="val" id="sim-fin">—</div><div class="sub sube" id="sim-gan"></div></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="como">
+    <div class="seccion-titulo"><div><h2>Cómo funciona</h2></div></div>
+    <div class="grilla g4">
+      <div class="tarjeta paso"><b>1</b><h3>Creá tu cuenta</h3><p class="tenue">Registrate y confirmá tu mail. Ahí vas a recibir cada contrato para firmar.</p></div>
+      <div class="tarjeta paso"><b>2</b><h3>Ingresá fondos</h3><p class="tenue">Transferí dólares a la cuenta del proyecto e informá la transferencia. Sin costo.</p></div>
+      <div class="tarjeta paso"><b>3</b><h3>Comprá cuotapartes</h3><p class="tenue">Elegí el monto, recibís el contrato por mail y lo firmás con un clic.</p></div>
+      <div class="tarjeta paso"><b>4</b><h3>Vendé o retirá</h3><p class="tenue">Vendé al valor del día y retirá a tu cuenta con una comisión de <span class="com-txt">0,5%</span>.</p></div>
+    </div>
+  </section>
+
+  <section>
+    <div class="tarjeta garante">
+      <div class="escudo"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#E9C46A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg></div>
+      <div><h3 style="margin-bottom:4px">Respaldo de <span id="garante">Lucorin Avicola Mdp S.R.L.</span></h3>
+      <p style="margin:0" class="tenue">La empresa garante respalda las obligaciones del desarrollador frente a los cuotapartistas, en los términos del instrumento de garantía.</p></div>
+    </div>
+  </section>
+
+  <p class="chico tenue" style="margin-top:24px">La tasa del <span class="tasa-txt">9%</span> anual es una tasa de referencia para la actualización del valor de la cuotaparte y no constituye una promesa de rentabilidad. Toda inversión implica riesgos. Leé los contratos antes de firmar.</p>
+</main>
+
+<footer class="pie"><div class="contenedor">
+  <span>© <span id="anio"></span> <span id="emisor">Casadei &amp; Pringles</span> · Mar del Plata</span>
+  <span><a href="/app">Ingresar</a></span>
+</div></footer>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script type="module">
+import { api, marcaHtml, usd, usd0, cp, precio, pct, fecha, esc } from '/js/comun.js';
+
+document.getElementById('marca').innerHTML = marcaHtml;
+document.getElementById('anio').textContent = new Date().getFullYear();
+const $ = (id) => document.getElementById(id);
+
+const d = await api('/publico');
+const p = d.parametros;
+$('proyecto-tag').textContent = `${d.proyecto.nombre} · ${d.proyecto.ciudad}`;
+$('tasa-hero').textContent = pct(p.tasa_anual);
+document.querySelectorAll('.tasa-txt').forEach((e) => (e.textContent = pct(p.tasa_anual)));
+$('com-hero').textContent = pct(p.comision_retiro);
+document.querySelectorAll('.com-txt').forEach((e) => (e.textContent = pct(p.comision_retiro)));
+$('garante').textContent = d.proyecto.garante;
+$('emisor').textContent = d.proyecto.emisor;
+
+$('precio-hoy').textContent = precio(d.precio_hoy);
+$('precio-sub').innerHTML = `<span style="color:#9FE0D6">▲ ${pct(d.precio_hoy / p.valor_inicial - 1)}</span> desde el ${fecha(p.fecha_inicio)}`;
+$('precio-ini').textContent = precio(p.valor_inicial);
+$('precio-fin').textContent = precio(d.precio_final);
+$('valor-edif').textContent = usd0(d.totales.valor_edificio_hoy);
+const vendido = d.totales.cuotapartes ? d.totales.emitidas / d.totales.cuotapartes : 0;
+$('pct-vendido').textContent = pct(vendido, 1);
+$('barra-vendido').style.width = Math.min(100, vendido * 100) + '%';
+
+const anios = ((new Date(p.fecha_fin) - new Date(p.fecha_inicio)) / 31557600000).toFixed(1).replace('.0', '').replace('.', ',');
+$('kpis').innerHTML = [
+  ['Tasa de referencia', pct(p.tasa_anual), 'anual, compuesta día a día'],
+  ['Plazo de obra', `${anios} años`, `entrega estimada ${fecha(p.fecha_fin)}`],
+  ['Ingreso de fondos', 'Sin costo', `compra mínima ${usd0(p.min_compra_usd)}`],
+  ['Retiro de fondos', pct(p.comision_retiro), 'de comisión sobre lo retirado'],
+].map(([r, v, s]) => `<div class="tarjeta kpi"><div class="rot">${r}</div><div class="val">${v}</div><div class="sub">${s}</div></div>`).join('');
+
+$('tabla-unidades').innerHTML = d.unidades.length
+  ? d.unidades.map((u) => `<tr><td><b>${esc(u.nombre)}</b></td><td>${esc(u.tipologia || '')}</td><td class="der num">${u.m2 ?? ''}</td><td class="der num">${cp(u.cuotapartes)}</td><td class="der num"><b>${usd0(u.valor_hoy)}</b></td><td class="der num">${usd0(u.valor_final)}</td></tr>`).join('')
+  : '<tr><td colspan="6" class="tenue">Todavía no hay unidades cargadas.</td></tr>';
+
+function simular() {
+  const m = Number($('sim-monto').value) || 0;
+  const c = m / d.precio_hoy, fin = c * d.precio_final;
+  $('sim-cp').textContent = cp(c);
+  $('sim-fin').textContent = usd(fin);
+  $('sim-gan').textContent = m > 0 ? `+${usd(fin - m)} (${pct(fin / m - 1, 1)})` : '';
+}
+$('sim-monto').addEventListener('input', simular);
+simular();
+
+const css = getComputedStyle(document.documentElement);
+new Chart($('grafico'), {
+  type: 'line',
+  data: {
+    labels: d.serie.map((s) => s.fecha),
+    datasets: [
+      { label: 'Valor de la cuotaparte', data: d.serie.map((s) => ({ x: s.fecha, y: s.precio })), borderColor: css.getPropertyValue('--mar').trim(), backgroundColor: 'rgba(42,157,143,.10)', fill: true, pointRadius: 0, tension: .25, borderWidth: 2.5 },
+      { label: 'Hoy', data: [{ x: d.hoy, y: d.precio_hoy }], borderColor: css.getPropertyValue('--tinta').trim(), backgroundColor: css.getPropertyValue('--arena').trim(), pointRadius: 7, pointHoverRadius: 8, borderWidth: 3, showLine: false },
+    ],
+  },
+  options: {
+    maintainAspectRatio: false,
+    parsing: { xAxisKey: 'x', yAxisKey: 'y' },
+    interaction: { mode: 'nearest', intersect: false },
+    plugins: { legend: { display: false }, tooltip: { callbacks: { title: (i) => fecha(i[0].raw.x), label: (i) => `${i.dataset.label}: ${precio(i.raw.y)}` } } },
+    scales: {
+      x: { type: 'category', labels: [...new Set([...d.serie.map((s) => s.fecha), d.hoy])].sort(), grid: { display: false }, ticks: { maxTicksLimit: 9, callback(v) { const f = this.getLabelForValue(v); return new Date(f + 'T12:00').toLocaleDateString('es-AR', { month: 'short', year: '2-digit' }); } } },
+      y: { grid: { color: '#EFEAE0' }, ticks: { callback: (v) => 'US$ ' + v.toFixed(2) } },
+    },
+  },
+});
+</script>
+</body>
+</html>
