@@ -1,7 +1,7 @@
 import express from 'express';
 import crypto from 'node:crypto';
 import bcrypt from 'bcryptjs';
-import { q, tx } from './db.mjs';
+import { q, tx, tipoDb } from './db.mjs';
 import { leerConfig, guardarConfig } from './config.mjs';
 import { precioHoy, precioFinal, serie, avance, hoyAR } from './precio.mjs';
 import { enviarMail, plantilla } from './mail.mjs';
@@ -225,6 +225,12 @@ export function rutasApi() {
     }
     next();
   });
+
+  // Estado del servicio (sin datos sensibles), para revisar la configuración.
+  r.get('/salud', h(async (req, res) => {
+    await q('select 1');
+    res.json({ ok: true, base: tipoDb, mail: !!process.env.RESEND_API_KEY, admins: admins().length, app_url: !!process.env.APP_URL });
+  }));
 
   // ── Público ──
   r.get('/publico', h(async (req, res) => {

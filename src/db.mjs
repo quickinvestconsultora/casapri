@@ -4,6 +4,7 @@ import pg from 'pg';
 import { fileURLToPath } from 'node:url';
 
 let impl;
+export let tipoDb = 'pglite';
 
 export async function iniciarDb() {
   const url = process.env.DATABASE_URL;
