@@ -6,6 +6,7 @@ import { leerConfig, guardarConfig } from './config.mjs';
 import { precioHoy, precioFinal, serie, avance, hoyAR } from './precio.mjs';
 import { enviarMail, plantilla } from './mail.mjs';
 import { textoContrato, hashContrato } from './contratos.mjs';
+import { mepHoy } from './mep.mjs';
 
 class ErrorUsuario extends Error {
   constructor(msg, status = 400) {
@@ -21,6 +22,7 @@ const token = () => crypto.randomBytes(32).toString('base64url');
 const esProd = process.env.NODE_ENV === 'production';
 const admins = () => (process.env.ADMIN_EMAILS || '').split(',').map((s) => s.trim().toLowerCase()).filter(Boolean);
 const fUsd = (c) => 'US$ ' + (c / 100).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const fArs = (c) => '$ ' + (c / 100).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const fCp = (m) => (m / 1e6).toLocaleString('es-AR', { maximumFractionDigits: 4 });
 const TIPOS = { deposito: 'Depósito', compra: 'Compra', venta: 'Venta', retiro: 'Retiro' };
 
@@ -73,7 +75,7 @@ function exigirOperable(u) {
 
 const publico = (u) => ({
   id: u.id, email: u.email, nombre: u.nombre, apellido: u.apellido, documento: u.documento,
-  domicilio: u.domicilio, telefono: u.telefono, cbu: u.cbu, rol: u.rol, email_ok: u.email_ok,
+  domicilio: u.domicilio, telefono: u.telefono, cbu: u.cbu, cbu_usd: u.cbu_usd, rol: u.rol, email_ok: u.email_ok,
 });
 
 // ───────── posiciones ─────────
@@ -122,10 +124,41 @@ function costoPromedio(ops) {
   return Math.max(0, Math.round(costo));
 }
 
+// Lo que el inversor puso y sacó, medido en dólares y en pesos (a la cotización de cada día).
+// La ganancia en pesos incluye la variación del dólar MEP.
+function cuentaPesos(ops, saldoCents, valorCents, mep) {
+  let aUsd = 0, aArs = 0, enCamino = 0;
+  for (const o of ops) {
+    const tc = Number(o.tipo_cambio) || mep;
+    if (o.tipo === 'deposito' && o.estado === 'confirmada') {
+      aUsd += n(o.usd_cents);
+      aArs += o.moneda === 'ARS' && o.ars_cents != null ? n(o.ars_cents) : n(o.usd_cents) * tc;
+    } else if (o.tipo === 'retiro' && o.estado === 'confirmada') {
+      aUsd -= n(o.usd_cents);
+      aArs -= o.moneda === 'ARS' && o.ars_cents != null ? n(o.ars_cents) : (n(o.usd_cents) - n(o.comision_cents)) * tc;
+    } else if (o.tipo === 'retiro' && ['revision', 'firma_pendiente'].includes(o.estado)) {
+      enCamino += n(o.usd_cents);
+    }
+  }
+  const patUsd = saldoCents + valorCents + enCamino;
+  const patArs = mep ? patUsd * mep : null;
+  return {
+    patrimonio_usd: patUsd / 100,
+    aportes_usd: aUsd / 100,
+    ganancia_total_usd: (patUsd - aUsd) / 100,
+    patrimonio_ars: patArs == null ? null : Math.round(patArs) / 100,
+    aportes_ars: Math.round(aArs) / 100,
+    ganancia_ars: patArs == null ? null : Math.round(patArs - aArs) / 100,
+  };
+}
+
 function opPublica(o) {
   return {
     id: o.id, tipo: o.tipo, estado: o.estado, usd: n(o.usd_cents) / 100, comision: n(o.comision_cents) / 100,
     cp: n(o.cp_micro) / 1e6, precio: o.precio == null ? null : Number(o.precio), referencia: o.referencia,
+    moneda: o.moneda || 'USD', ars: o.ars_cents == null ? null : n(o.ars_cents) / 100,
+    tipo_cambio: o.tipo_cambio == null ? null : Number(o.tipo_cambio),
+    cuenta_origen: o.cuenta_origen,
     nota_admin: o.nota_admin, creado: o.creado, resuelto: o.resuelto, firmado: o.firmado,
     firma_vence: o.firma_vence, tiene_contrato: !!o.contrato,
   };
@@ -145,24 +178,26 @@ async function mandarVerificacion(req, u) {
   return url;
 }
 
-async function mandarFirma(req, op, u) {
-  const url = `${baseUrl(req)}/firmar?t=${op.firma_token}`;
+// Código de 6 dígitos que se manda por mail para firmar un contrato dentro de la plataforma.
+async function mandarCodigo(op, u) {
+  const codigo = String(crypto.randomInt(0, 1e6)).padStart(6, '0');
+  await q("update operaciones set codigo_hash=$1, codigo_vence=now() + interval '10 minutes', codigo_intentos=0 where id=$2", [hashCodigo(op.id, codigo), op.id]);
   const resumen = op.tipo === 'retiro'
-    ? `Retiro de ${fUsd(n(op.usd_cents))} (comisión ${fUsd(n(op.comision_cents))}, neto ${fUsd(n(op.usd_cents) - n(op.comision_cents))}).`
-    : `${TIPOS[op.tipo]} de ${fCp(n(op.cp_micro))} cuotapartes a US$ ${Number(op.precio).toFixed(6)} por ${fUsd(n(op.usd_cents))}.`;
+    ? `Retiro de ${fUsd(n(op.usd_cents))} (comisión ${fUsd(n(op.comision_cents))}).`
+    : `${TIPOS[op.tipo]} de ${fCp(n(op.cp_micro))} cuotapartes por ${fUsd(n(op.usd_cents))}.`;
   await enviarMail({
     para: u.email,
-    asunto: `Firmá tu ${TIPOS[op.tipo].toLowerCase()} N° ${op.id} — Casapri`,
+    asunto: `Tu código para firmar: ${codigo}`,
     html: plantilla({
-      titulo: `Confirmá tu ${TIPOS[op.tipo].toLowerCase()}`,
-      parrafos: [resumen, 'Para que la operación sea válida, leé el contrato y firmalo desde el botón. El enlace vence en ' + (await leerConfig()).firma_horas + ' horas.'],
-      boton: { texto: 'Leer y firmar el contrato', url },
-      pie: 'Si no pediste esta operación, ignorá este mail y avisanos.',
+      titulo: `Código de firma: ${codigo}`,
+      parrafos: [`Estás por firmar: ${resumen} (operación N° ${op.id}).`, 'Ingresá este código en la plataforma para firmar el contrato. Vence en 10 minutos.'],
+      pie: 'Si no estás firmando nada, no compartas este código y avisanos.',
     }),
-    texto: `${resumen}\nLeé y firmá el contrato: ${url}`,
+    texto: `Tu código para firmar la operación N° ${op.id}: ${codigo}. Vence en 10 minutos.`,
   });
-  return url;
+  return codigo;
 }
+const hashCodigo = (id, codigo) => crypto.createHash('sha256').update(`${id}:${codigo}:${process.env.CODIGO_SAL || 'casapri'}`).digest('hex');
 
 async function avisarAdmins(asunto, linea) {
   const para = admins();
@@ -198,6 +233,7 @@ export function rutasApi() {
     const final = precioFinal(cfg);
     const { rows: unidades } = await q("select * from unidades where estado <> 'retirada' order by orden, id");
     const cp = await cuotapartesDisponibles({ query: q });
+    const mep = await mepHoy(cfg);
     const { rows: inv } = await q("select count(distinct usuario_id)::int as n from operaciones where tipo='compra' and estado='confirmada'");
     res.json({
       proyecto: { nombre: cfg.nombre_proyecto, ciudad: cfg.ciudad, emisor: cfg.emisor, garante: cfg.garante },
@@ -205,7 +241,7 @@ export function rutasApi() {
         valor_inicial: cfg.valor_inicial, tasa_anual: cfg.tasa_anual, fecha_inicio: cfg.fecha_inicio,
         fecha_fin: cfg.fecha_fin, comision_retiro: cfg.comision_retiro, min_compra_usd: cfg.min_compra_usd,
       },
-      hoy: hoyAR(), precio_hoy: precio, precio_final: final, avance_tiempo: avance(cfg), serie: serie(cfg),
+      mep, hoy: hoyAR(), precio_hoy: precio, precio_final: final, avance_tiempo: avance(cfg), serie: serie(cfg),
       unidades: unidades.map((u) => ({
         id: u.id, nombre: u.nombre, piso: u.piso, tipologia: u.tipologia, m2: u.m2 == null ? null : Number(u.m2),
         cuotapartes: n(u.cuotapartes), estado: u.estado,
@@ -319,12 +355,14 @@ export function rutasApi() {
     const precio = precioHoy(cfg);
     const valor = Math.round((pos.cp_micro / 1e6) * precio * 100);
     const costo = costoPromedio(ops);
-    const { rows: dep } = await q("select coalesce(sum(usd_cents),0)::float8 as t from operaciones where usuario_id=$1 and tipo='deposito' and estado='confirmada'", [u.id]);
+    const mep = await mepHoy(cfg);
     res.json({
+      mep,
       usuario: publico(u),
       precio_hoy: precio,
       precio_final: precioFinal(cfg),
       parametros: { tasa_anual: cfg.tasa_anual, comision_retiro: cfg.comision_retiro, min_compra_usd: cfg.min_compra_usd, fecha_fin: cfg.fecha_fin, venta_requiere_aprobacion: cfg.venta_requiere_aprobacion },
+      banco_ars: { titular: cfg.banco_ars_titular, nombre: cfg.banco_ars_nombre, cbu: cfg.banco_ars_cbu, alias: cfg.banco_ars_alias },
       banco: { titular: cfg.banco_titular, nombre: cfg.banco_nombre, cbu: cfg.banco_cbu, alias: cfg.banco_alias, usdt_red: cfg.usdt_red, usdt_direccion: cfg.usdt_direccion },
       posicion: {
         saldo: pos.saldo_cents / 100,
@@ -333,7 +371,7 @@ export function rutasApi() {
         costo: costo / 100,
         ganancia: (valor - costo) / 100,
         valor_final_estimado: Math.round((pos.cp_micro / 1e6) * precioFinal(cfg) * 100) / 100,
-        depositado: n(dep[0].t) / 100,
+        ...cuentaPesos(ops, pos.saldo_cents, valor, mep?.valor),
       },
       operaciones: ops.map(opPublica),
     });
@@ -344,24 +382,34 @@ export function rutasApi() {
     const limpio = (v, max = 200) => (v == null ? null : String(v).trim().slice(0, max) || null);
     if (!limpio(b.nombre) || !limpio(b.apellido)) throw new ErrorUsuario('Nombre y apellido son obligatorios.');
     await q(
-      'update usuarios set nombre=$1, apellido=$2, documento=$3, domicilio=$4, telefono=$5, cbu=$6 where id=$7',
-      [limpio(b.nombre), limpio(b.apellido), limpio(b.documento, 30), limpio(b.domicilio), limpio(b.telefono, 40), limpio(b.cbu, 120), req.usuario.id],
+      'update usuarios set nombre=$1, apellido=$2, documento=$3, domicilio=$4, telefono=$5, cbu=$6, cbu_usd=$7 where id=$8',
+      [limpio(b.nombre), limpio(b.apellido), limpio(b.documento, 30), limpio(b.domicilio), limpio(b.telefono, 40), limpio(b.cbu, 120), limpio(b.cbu_usd, 120), req.usuario.id],
     );
     res.json({ ok: true });
   }));
 
   r.post('/depositos', auth, h(async (req, res) => {
     const u = req.usuario;
-    if (!u.email_ok) throw new ErrorUsuario('Primero confirmá tu mail.');
-    const cents = aCents(req.body?.usd);
-    if (!Number.isFinite(cents) || cents < 100 || cents > 1e10) throw new ErrorUsuario('Monto inválido.');
+    exigirOperable(u);
+    const moneda = req.body?.moneda === 'ARS' ? 'ARS' : 'USD';
+    // Solo se aceptan transferencias desde una cuenta del propio titular.
+    const cuenta = moneda === 'ARS' ? u.cbu : u.cbu_usd;
+    if (!cuenta) throw new ErrorUsuario(`Cargá en «Mi perfil» tu cuenta en ${moneda === 'ARS' ? 'pesos' : 'dólares'} a tu nombre: los depósitos tienen que salir de esa cuenta.`);
+    if (req.body?.cuenta_propia !== true) throw new ErrorUsuario('Confirmá que transferiste desde tu cuenta, a tu nombre.');
+    const monto = aCents(req.body?.monto ?? req.body?.usd);
+    if (!Number.isFinite(monto) || monto < 100 || monto > 1e13) throw new ErrorUsuario('Monto inválido.');
+    const mep = await mepHoy(await leerConfig());
+    if (moneda === 'ARS' && !mep) throw new ErrorUsuario('No pudimos obtener la cotización del dólar MEP. Probá en un rato.');
+    // En pesos, el monto en dólares es una estimación: se fija al acreditar con el MEP de ese día.
+    const cents = moneda === 'ARS' ? Math.floor(monto / mep.valor) : monto;
     const ref = String(req.body?.referencia || '').trim().slice(0, 200);
     if (!ref) throw new ErrorUsuario('Indicá el número de operación o comprobante de la transferencia.');
     const { rows } = await q(
-      "insert into operaciones (usuario_id, tipo, usd_cents, estado, referencia) values ($1,'deposito',$2,'revision',$3) returning *",
-      [u.id, cents, ref],
+      "insert into operaciones (usuario_id, tipo, moneda, usd_cents, ars_cents, tipo_cambio, estado, referencia, cuenta_origen) values ($1,'deposito',$2,$3,$4,$5,'revision',$6,$7) returning *",
+      [u.id, moneda, cents, moneda === 'ARS' ? monto : null, mep?.valor ?? null, ref, cuenta],
     );
-    await avisarAdmins(`Nuevo depósito informado: ${fUsd(cents)}`, `${u.nombre} ${u.apellido} (${u.email}) informó una transferencia de ${fUsd(cents)}. Referencia: ${ref}.`);
+    const txt = moneda === 'ARS' ? `${fArs(monto)} (≈ ${fUsd(cents)})` : fUsd(cents);
+    await avisarAdmins(`Nuevo depósito informado: ${txt}`, `${u.nombre} ${u.apellido} (${u.email}) informó una transferencia de ${txt} desde ${cuenta} (DNI/CUIT ${u.documento}). Referencia: ${ref}.`);
     res.json({ ok: true, operacion: opPublica(rows[0]) });
   }));
 
@@ -375,7 +423,7 @@ export function rutasApi() {
       await db.query('select pg_advisory_xact_lock(4242)');
       await vencerFirmas(db);
       const pos = await posicion(db, u.id);
-      let usd = 0, cp = 0, com = 0, prec = precio;
+      let usd = 0, cp = 0, com = 0, prec = precio, moneda = 'USD', tc = null;
       if (tipo === 'compra') {
         usd = aCents(req.body?.usd);
         if (!Number.isFinite(usd) || usd <= 0) throw new ErrorUsuario('Monto inválido.');
@@ -391,25 +439,30 @@ export function rutasApi() {
         usd = Math.floor((cp / 1e6) * precio * 100);
         if (usd < 1) throw new ErrorUsuario('El monto es demasiado chico.');
       } else {
-        if (!u.cbu) throw new ErrorUsuario('Cargá tu CBU/CVU o alias en «Mi perfil» para poder retirar.');
+        if (!(req.body?.moneda === 'ARS' ? u.cbu : u.cbu_usd)) throw new ErrorUsuario(`Cargá tu cuenta en ${req.body?.moneda === 'ARS' ? 'pesos' : 'dólares'} en «Mi perfil» para poder retirar.`);
         usd = aCents(req.body?.usd);
         if (!Number.isFinite(usd) || usd < 100) throw new ErrorUsuario('El retiro mínimo es US$ 1.');
         if (usd > pos.saldo_cents) throw new ErrorUsuario(`Saldo insuficiente. Tenés ${fUsd(pos.saldo_cents)} disponibles.`);
         com = Math.round(usd * cfg.comision_retiro);
+        moneda = req.body?.moneda === 'ARS' ? 'ARS' : 'USD';
+        if (moneda === 'ARS') {
+          const mep = await mepHoy(cfg);
+          if (!mep) throw new ErrorUsuario('No pudimos obtener la cotización del dólar MEP. Probá en un rato.');
+          tc = mep.valor;
+        }
         prec = null;
       }
       const { rows } = await db.query(
-        `insert into operaciones (usuario_id, tipo, usd_cents, comision_cents, cp_micro, precio, estado, firma_token, firma_vence)
-         values ($1,$2,$3,$4,$5,$6,'firma_pendiente',$7, now() + make_interval(hours => $8::int)) returning *`,
-        [u.id, tipo, usd, com, cp, prec, token(), Math.round(cfg.firma_horas)],
+        `insert into operaciones (usuario_id, tipo, usd_cents, comision_cents, cp_micro, precio, estado, firma_token, firma_vence, moneda, tipo_cambio)
+         values ($1,$2,$3,$4,$5,$6,'firma_pendiente',$7, now() + make_interval(hours => $8::int), $9, $10) returning *`,
+        [u.id, tipo, usd, com, cp, prec, token(), Math.round(cfg.firma_horas), moneda, tc],
       );
       const op = rows[0];
       const contrato = textoContrato({ tipo, op: { ...op, usd_cents: n(op.usd_cents), comision_cents: n(op.comision_cents), cp_micro: n(op.cp_micro) }, usuario: u, cfg });
       await db.query('update operaciones set contrato = $1, contrato_hash = $2 where id = $3', [contrato, hashContrato(contrato), op.id]);
       return { ...op, contrato };
     });
-    const url = await mandarFirma(req, op, u);
-    res.json({ ok: true, operacion: opPublica(op), ...(!esProd && !process.env.RESEND_API_KEY ? { dev_link: url } : {}) });
+    res.json({ ok: true, operacion: opPublica(op), contrato: op.contrato });
   }
 
   r.post('/compras', auth, h((req, res) => operacionConFirma(req, res, 'compra')));
@@ -425,12 +478,13 @@ export function rutasApi() {
     res.json({ ok: true });
   }));
 
-  r.post('/operaciones/:id/reenviar', auth, h(async (req, res) => {
-    limitar('reenv:' + req.usuario.id, 6, 3600000);
-    const { rows } = await q("select * from operaciones where id=$1 and usuario_id=$2 and estado='firma_pendiente' and firma_vence > now()", [Number(req.params.id), req.usuario.id]);
+  r.post('/operaciones/:id/codigo', auth, h(async (req, res) => {
+    limitar('codigo:' + req.usuario.id, 8, 3600000);
+    await vencerFirmas({ query: q });
+    const { rows } = await q("select * from operaciones where id=$1 and usuario_id=$2 and estado='firma_pendiente'", [Number(req.params.id), req.usuario.id]);
     if (!rows[0]) throw new ErrorUsuario('Esa operación ya no está esperando firma.');
-    const url = await mandarFirma(req, rows[0], req.usuario);
-    res.json({ ok: true, ...(!esProd && !process.env.RESEND_API_KEY ? { dev_link: url } : {}) });
+    const codigo = await mandarCodigo(rows[0], req.usuario);
+    res.json({ ok: true, email: req.usuario.email, ...(!esProd && !process.env.RESEND_API_KEY ? { dev_codigo: codigo } : {}) });
   }));
 
   r.get('/operaciones/:id/contrato', auth, h(async (req, res) => {
@@ -443,37 +497,34 @@ export function rutasApi() {
     res.json(rows[0]);
   }));
 
-  // ── Firma por mail (el token secreto del mail es la credencial) ──
-  r.get('/firma/:token', h(async (req, res) => {
-    await vencerFirmas({ query: q });
-    const { rows } = await q(
-      'select o.*, u.nombre, u.apellido, u.email from operaciones o join usuarios u on u.id=o.usuario_id where o.firma_token=$1',
-      [req.params.token],
-    );
-    const o = rows[0];
-    if (!o) throw new ErrorUsuario('El enlace no es válido.', 404);
-    res.json({ ...opPublica(o), contrato: o.contrato, contrato_hash: o.contrato_hash, nombre: `${o.nombre} ${o.apellido}`, email: o.email });
-  }));
-
-  r.post('/firma/:token', h(async (req, res) => {
+  // Firma dentro de la plataforma: sesión iniciada + código recibido por mail.
+  r.post('/operaciones/:id/firmar', auth, h(async (req, res) => {
     if (req.body?.acepto !== true) throw new ErrorUsuario('Tenés que aceptar el contrato.');
+    const codigo = String(req.body?.codigo || '').replace(/D/g, '');
     const cfg = await leerConfig();
     const resultado = await tx(async (db) => {
       await db.query('select pg_advisory_xact_lock(4242)');
       await vencerFirmas(db);
-      const { rows } = await db.query('select * from operaciones where firma_token=$1 for update', [req.params.token]);
+      const { rows } = await db.query('select * from operaciones where id=$1 and usuario_id=$2 for update', [Number(req.params.id), req.usuario.id]);
       const o = rows[0];
-      if (!o) throw new ErrorUsuario('El enlace no es válido.', 404);
-      if (o.estado !== 'firma_pendiente') throw new ErrorUsuario(o.estado === 'vencida' ? 'El enlace venció. Volvé a hacer la operación.' : 'Esta operación ya fue firmada o cancelada.');
+      if (!o) throw new ErrorUsuario('No encontramos la operación.', 404);
+      if (o.estado !== 'firma_pendiente') throw new ErrorUsuario(o.estado === 'vencida' ? 'La operación venció. Volvé a hacerla.' : 'Esta operación ya fue firmada o cancelada.');
+      if (!o.codigo_hash || new Date(o.codigo_vence) < new Date()) throw new ErrorUsuario('El código venció. Pedí uno nuevo.');
+      if (n(o.codigo_intentos) >= 5) throw new ErrorUsuario('Demasiados intentos. Pedí un código nuevo.');
+      if (hashCodigo(o.id, codigo) !== o.codigo_hash) {
+        await db.query('update operaciones set codigo_intentos = codigo_intentos + 1 where id=$1', [o.id]);
+        return { error: 'El código no es correcto.' };
+      }
       const nuevo = o.tipo === 'compra' ? 'confirmada' : o.tipo === 'venta' ? (cfg.venta_requiere_aprobacion ? 'revision' : 'confirmada') : 'revision';
       const ip = String(req.headers['x-forwarded-for'] || req.ip || '').split(',')[0].trim();
       const { rows: act } = await db.query(
-        `update operaciones set estado=$1, firmado=now(), firmado_ip=$2, firmado_agente=$3, resuelto = case when $1='confirmada' then now() else null end
+        `update operaciones set estado=$1, firmado=now(), firmado_ip=$2, firmado_agente=$3, codigo_hash=null, resuelto = case when $1='confirmada' then now() else null end
           where id=$4 returning *`,
         [nuevo, ip, String(req.headers['user-agent'] || '').slice(0, 300), o.id],
       );
       return act[0];
     });
+    if (resultado.error) throw new ErrorUsuario(resultado.error);
     const { rows: us } = await q('select * from usuarios where id=$1', [resultado.usuario_id]);
     const u = us[0];
     await enviarMail({
@@ -482,7 +533,7 @@ export function rutasApi() {
       html: plantilla({
         titulo: 'Tu contrato quedó firmado',
         parrafos: [
-          `Firmaste el ${new Date(resultado.firmado).toLocaleString('es-AR', { timeZone: 'America/Argentina/Buenos_Aires' })} desde la IP ${resultado.firmado_ip}.`,
+          `Firmaste con el código enviado a este mail el ${new Date(resultado.firmado).toLocaleString('es-AR', { timeZone: 'America/Argentina/Buenos_Aires' })} desde la IP ${resultado.firmado_ip}.`,
           resultado.estado === 'confirmada' ? 'La operación ya está confirmada.' : 'La operación quedó en revisión; te avisamos cuando se complete.',
           `Código de verificación del contrato (SHA-256): ${resultado.contrato_hash}`,
         ],
@@ -502,7 +553,7 @@ export function rutasApi() {
     const cfg = await leerConfig();
     const precio = precioHoy(cfg);
     const { rows: pend } = await q(
-      "select o.*, u.nombre, u.apellido, u.email, u.cbu from operaciones o join usuarios u on u.id=o.usuario_id where o.estado='revision' order by o.creado",
+      "select o.*, u.nombre, u.apellido, u.email, u.cbu, u.cbu_usd, u.documento from operaciones o join usuarios u on u.id=o.usuario_id where o.estado='revision' order by o.creado",
     );
     const { rows: tot } = await q(
       `select tipo, coalesce(sum(usd_cents),0)::float8 as usd, coalesce(sum(comision_cents),0)::float8 as com, coalesce(sum(cp_micro),0)::float8 as cp, count(*)::int as n
@@ -517,8 +568,8 @@ export function rutasApi() {
     );
     const g = (k, c = 'usd') => n(t[k]?.[c]);
     res.json({
-      precio_hoy: precio,
-      pendientes: pend.map((o) => ({ ...opPublica(o), nombre: `${o.nombre} ${o.apellido}`, email: o.email, cbu: o.cbu })),
+      precio_hoy: precio, mep: await mepHoy(cfg),
+      pendientes: pend.map((o) => ({ ...opPublica(o), nombre: `${o.nombre} ${o.apellido}`, email: o.email, documento: o.documento, cbu: o.moneda === 'ARS' ? o.cbu : o.cbu_usd })),
       stats: {
         usuarios: n(us[0].n), verificados: n(us[0].v),
         depositado: g('deposito') / 100, retirado: g('retiro') / 100, comisiones: g('retiro', 'com') / 100,
@@ -561,21 +612,38 @@ export function rutasApi() {
       const o = rows[0];
       if (!o) throw new ErrorUsuario('La operación ya no está pendiente.');
       let usd = n(o.usd_cents);
-      if (accion === 'aprobar' && o.tipo === 'deposito' && req.body?.usd != null) {
-        usd = aCents(req.body.usd);
+      let ars = o.ars_cents == null ? null : n(o.ars_cents);
+      let tc = o.tipo_cambio == null ? null : Number(o.tipo_cambio);
+      if (accion === 'aprobar' && (o.tipo === 'deposito' || o.tipo === 'retiro')) {
+        // Se fija el dólar MEP del día de acreditación o de pago (el admin lo puede corregir).
+        tc = Number(req.body?.tipo_cambio) || (await mepHoy(await leerConfig()))?.valor || tc;
+        if (o.moneda === 'ARS' && !(tc > 0)) throw new ErrorUsuario('Falta la cotización del dólar MEP.');
+        if (o.tipo === 'deposito' && o.moneda === 'ARS') {
+          if (req.body?.ars != null) ars = aCents(req.body.ars);
+          if (!Number.isFinite(ars) || ars <= 0) throw new ErrorUsuario('Monto en pesos inválido.');
+          usd = Math.floor(ars / tc);
+        } else if (o.tipo === 'deposito' && req.body?.usd != null) {
+          usd = aCents(req.body.usd);
+        } else if (o.tipo === 'retiro' && o.moneda === 'ARS') {
+          ars = Math.floor((usd - n(o.comision_cents)) * tc);
+        }
         if (!Number.isFinite(usd) || usd <= 0) throw new ErrorUsuario('Monto inválido.');
       }
       const { rows: act } = await db.query(
-        'update operaciones set estado=$1, nota_admin=$2, usd_cents=$3, resuelto=now() where id=$4 returning *',
-        [accion === 'aprobar' ? 'confirmada' : 'rechazada', nota, usd, o.id],
+        'update operaciones set estado=$1, nota_admin=$2, usd_cents=$3, ars_cents=$4, tipo_cambio=$5, resuelto=now() where id=$6 returning *',
+        [accion === 'aprobar' ? 'confirmada' : 'rechazada', nota, usd, ars, tc, o.id],
       );
       return act[0];
     });
     const { rows: us } = await q('select * from usuarios where id=$1', [op.usuario_id]);
     const textos = {
-      deposito: `acreditamos tu depósito de ${fUsd(n(op.usd_cents))}. Ya podés comprar cuotapartes.`,
+      deposito: op.moneda === 'ARS'
+        ? `acreditamos tu depósito de ${fArs(n(op.ars_cents))}, que al dólar MEP de $ ${Number(op.tipo_cambio).toLocaleString('es-AR')} son ${fUsd(n(op.usd_cents))}. Ya podés comprar cuotapartes.`
+        : `acreditamos tu depósito de ${fUsd(n(op.usd_cents))}. Ya podés comprar cuotapartes.`,
       venta: `se aprobó tu venta de ${fCp(n(op.cp_micro))} cuotapartes. Se acreditaron ${fUsd(n(op.usd_cents))} en tu saldo.`,
-      retiro: `transferimos tu retiro: ${fUsd(n(op.usd_cents) - n(op.comision_cents))} netos a ${us[0].cbu}.`,
+      retiro: op.moneda === 'ARS'
+        ? `transferimos tu retiro: ${fArs(n(op.ars_cents))} (${fUsd(n(op.usd_cents) - n(op.comision_cents))} netos al dólar MEP de $ ${Number(op.tipo_cambio).toLocaleString('es-AR')}) a ${op.moneda === 'ARS' ? us[0].cbu : us[0].cbu_usd}.`
+        : `transferimos tu retiro: ${fUsd(n(op.usd_cents) - n(op.comision_cents))} netos a ${op.moneda === 'ARS' ? us[0].cbu : us[0].cbu_usd}.`,
     };
     const linea = accion === 'aprobar' ? `Hola ${us[0].nombre}, ${textos[op.tipo]}` : `Hola ${us[0].nombre}, tu ${TIPOS[op.tipo].toLowerCase()} N° ${op.id} fue rechazado/a.${nota ? ' Motivo: ' + nota : ''}`;
     await enviarMail({ para: us[0].email, asunto: `${TIPOS[op.tipo]} N° ${op.id}: ${accion === 'aprobar' ? 'listo' : 'rechazado'}`, html: plantilla({ titulo: TIPOS[op.tipo], parrafos: [linea] }), texto: linea }).catch((e) => console.error(e));

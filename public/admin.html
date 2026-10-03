@@ -25,10 +25,11 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <script type="module">
-import { api, marcaHtml, usd, usd0, cp, precio, pct, fecha, fechaHora, esc, TIPOS, etiquetaEstado, toast, verContrato, conBoton } from '/js/comun.js';
+import { api, marcaHtml, usd, usd0, ars, ars2, cp, precio, pct, fecha, fechaHora, esc, TIPOS, etiquetaEstado, toast, verContrato, conBoton } from '/js/comun.js';
 document.getElementById('marca').innerHTML = marcaHtml;
 const vista = document.getElementById('vista');
 let pestana = sessionStorage.getItem('pestana-admin') || 'pendientes';
+let mepHoy = null;
 
 async function dibujar() {
   let r;
@@ -36,8 +37,9 @@ async function dibujar() {
     vista.innerHTML = e.status === 401 ? '<div class="aviso alerta" style="margin-top:32px">Tenés que <a href="/app">ingresar</a> primero.</div>' : `<div class="aviso error" style="margin-top:32px">${esc(e.message)}</div>`;
     return;
   }
+  mepHoy = r.mep?.valor || null;
   const tabs = [['pendientes', `Pendientes${r.pendientes.length ? ` (${r.pendientes.length})` : ''}`], ['estadisticas', 'Estadísticas'], ['inversores', 'Inversores'], ['operaciones', 'Operaciones'], ['unidades', 'Unidades'], ['config', 'Configuración']];
-  vista.innerHTML = `<div class="titulo"><h1>Administración</h1><span class="tenue chico">Cuotaparte hoy: <b class="num" style="color:var(--tinta)">${precio(r.precio_hoy)}</b></span></div>
+  vista.innerHTML = `<div class="titulo"><h1>Administración</h1><span class="tenue chico">Cuotaparte hoy: <b class="num" style="color:var(--tinta)">${precio(r.precio_hoy)}</b>${r.mep ? ` · Dólar MEP: <b class="num" style="color:var(--tinta)">${ars2(r.mep.valor)}</b> <span class="tenue">(${r.mep.fuente})</span>` : ''}</span></div>
     <div class="pestanas">${tabs.map(([k, t]) => `<button data-tab="${k}" aria-selected="${k === pestana}">${t}</button>`).join('')}</div>
     <div id="c"></div>`;
   vista.querySelectorAll('[data-tab]').forEach((b) => (b.onclick = () => { pestana = b.dataset.tab; sessionStorage.setItem('pestana-admin', pestana); dibujar(); }));
@@ -49,24 +51,37 @@ function pendientes(c, r) {
   if (!r.pendientes.length) { c.innerHTML = '<div class="tarjeta"><p class="tenue" style="margin:0">No hay nada pendiente de aprobar.</p></div>'; return; }
   c.innerHTML = r.pendientes.map((o) => `<div class="tarjeta" style="margin-bottom:12px">
     <div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap">
-      <div><h3 style="margin:0">${TIPOS[o.tipo]} N° ${o.id} · ${usd(o.usd)}</h3>
+      <div><h3 style="margin:0">${TIPOS[o.tipo]} N° ${o.id} · ${o.tipo === 'deposito' && o.moneda === 'ARS' ? ars2(o.ars) + ' <span class="tenue chico">(≈ ' + usd(o.usd) + ')</span>' : usd(o.usd)} ${o.moneda === 'ARS' ? '<span class="etiqueta">pesos</span>' : '<span class="etiqueta">dólares</span>'}</h3>
         <div class="tenue chico">${esc(o.nombre)} · ${esc(o.email)} · ${fechaHora(o.creado)}</div>
         <div class="chico" style="margin-top:6px">${
-          o.tipo === 'deposito' ? `Referencia: <b>${esc(o.referencia)}</b> — verificá que el dinero haya entrado antes de aprobar.`
-          : o.tipo === 'retiro' ? `Transferir <b>${usd(o.usd - o.comision)}</b> a <b>${esc(o.cbu)}</b> (comisión ${usd(o.comision)}). Aprobá cuando esté transferido.`
+          o.tipo === 'deposito' ? `Referencia: <b>${esc(o.referencia)}</b>. Tiene que venir de la cuenta <b>${esc(o.cuenta_origen)}</b> a nombre de ${esc(o.nombre)} (DNI/CUIT ${esc(o.documento || '—')}). Si viene de un tercero, rechazalo.`
+          : o.tipo === 'retiro' ? `Transferir <b>${o.moneda === 'ARS' ? (mepHoy ? '≈ ' + ars2((o.usd - o.comision) * mepHoy) + ' (' + usd(o.usd - o.comision) + ' al MEP del día)' : usd(o.usd - o.comision) + ' en pesos al MEP del día') : usd(o.usd - o.comision)}</b> a <b>${esc(o.cbu)}</b> (comisión ${usd(o.comision)}). Aprobá cuando esté transferido.`
           : `Vende ${cp(o.cp)} CP a ${precio(o.precio)}. Al aprobar se acreditan ${usd(o.usd)} en su saldo.`}</div></div>
       <div style="display:flex;gap:6px;align-items:start;flex-wrap:wrap">
         ${o.tiene_contrato ? `<button class="btn sec chico" data-contrato="${o.id}">Contrato</button>` : ''}
-        <button class="btn chico" data-aprobar="${o.id}" data-tipo="${o.tipo}" data-usd="${o.usd}">${o.tipo === 'retiro' ? 'Marcar transferido' : 'Aprobar'}</button>
+        <button class="btn chico" data-aprobar="${o.id}" data-tipo="${o.tipo}" data-usd="${o.usd}" data-moneda="${o.moneda}" data-ars="${o.ars ?? ''}" data-neto="${o.usd - o.comision}">${o.tipo === 'retiro' ? 'Marcar transferido' : 'Aprobar'}</button>
         <button class="btn peligro chico" data-rechazar="${o.id}">Rechazar</button>
       </div></div></div>`).join('');
   c.querySelectorAll('[data-contrato]').forEach((b) => (b.onclick = () => verContrato(b.dataset.contrato)));
   c.querySelectorAll('[data-aprobar]').forEach((b) => (b.onclick = () => conBoton(b, async () => {
     const body = {};
-    if (b.dataset.tipo === 'deposito') {
-      const m = prompt('Monto efectivamente recibido (US$):', b.dataset.usd);
+    const num = (t) => Number(String(t).replace(/\./g, '').replace(',', '.'));
+    if (b.dataset.tipo === 'deposito' && b.dataset.moneda === 'ARS') {
+      const a = prompt('Pesos efectivamente recibidos:', b.dataset.ars);
+      if (a === null) return;
+      const tc = prompt('Dólar MEP para acreditar:', mepHoy ?? '');
+      if (tc === null) return;
+      body.ars = Number(a.replace(',', '.')); body.tipo_cambio = num(tc);
+      if (!confirm(`Se acreditan ${usd(body.ars / body.tipo_cambio)}. ¿Confirmás?`)) return;
+    } else if (b.dataset.tipo === 'deposito') {
+      const m = prompt('Dólares efectivamente recibidos (US$):', b.dataset.usd);
       if (m === null) return;
       body.usd = Number(m.replace(',', '.'));
+    } else if (b.dataset.tipo === 'retiro' && b.dataset.moneda === 'ARS') {
+      const tc = prompt('Dólar MEP usado para pagar:', mepHoy ?? '');
+      if (tc === null) return;
+      body.tipo_cambio = num(tc);
+      if (!confirm(`Pesos transferidos: ${ars2(Number(b.dataset.neto) * body.tipo_cambio)}. ¿Confirmás?`)) return;
     } else if (!confirm('¿Confirmás?')) return;
     await api(`/admin/operaciones/${b.dataset.aprobar}/aprobar`, { body });
     toast('Operación aprobada. Le avisamos por mail.');
@@ -179,7 +194,11 @@ async function config(c) {
       <div class="fila">${campo('comision_retiro', 'Comisión de retiro', '0.005 = 0,5%', 'number')}${campo('min_compra_usd', 'Compra mínima (US$)', '', 'number')}</div>
       ${campo('firma_horas', 'Horas para firmar un contrato', '', 'number')}
       <label class="acepto" style="display:flex;gap:8px;align-items:center;font-weight:500"><input type="checkbox" name="venta_requiere_aprobacion" ${cfg.venta_requiere_aprobacion ? 'checked' : ''} style="width:18px;height:18px"> Las ventas requieren aprobación</label></div>
-    <div class="tarjeta seccion-cfg"><h3>Cuenta para recibir fondos</h3>
+    <div class="tarjeta seccion-cfg"><h3>Cuenta en pesos para recibir fondos</h3>
+      ${campo('banco_ars_titular', 'Titular')}${campo('banco_ars_nombre', 'Banco')}
+      <div class="fila">${campo('banco_ars_cbu', 'CBU')}${campo('banco_ars_alias', 'Alias')}</div>
+      <div class="campo"><label>Dólar MEP manual (opcional)</label><input name="mep_manual" type="number" step="any" value="${cfg.mep_manual || ''}"><div class="ayuda">Vacío = se toma solo de dolarapi.com cada 15 minutos.</div></div></div>
+    <div class="tarjeta seccion-cfg"><h3>Cuenta en dólares para recibir fondos</h3>
       ${campo('banco_titular', 'Titular')}${campo('banco_nombre', 'Banco')}
       <div class="fila">${campo('banco_cbu', 'CBU')}${campo('banco_alias', 'Alias')}</div>
       <div class="fila">${campo('usdt_red', 'Red USDT (opcional)', 'Ej: TRC20')}${campo('usdt_direccion', 'Dirección USDT (opcional)')}</div></div>

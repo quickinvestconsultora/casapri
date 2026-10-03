@@ -22,6 +22,8 @@ const nf = (min, max) => new Intl.NumberFormat('es-AR', { minimumFractionDigits:
 const f2 = nf(2, 2), f0 = nf(0, 0), fcp = nf(0, 4), f6 = nf(6, 6);
 export const usd = (n) => 'US$ ' + f2.format(n || 0);
 export const usd0 = (n) => 'US$ ' + f0.format(n || 0);
+export const ars = (n) => (n < 0 ? '−$ ' : '$ ') + f0.format(Math.abs(n || 0));
+export const ars2 = (n) => '$ ' + f2.format(n || 0);
 export const cp = (n) => fcp.format(n || 0);
 export const precio = (n) => 'US$ ' + f6.format(n || 0);
 export const pct = (n, d = 2) => nf(0, d).format((n || 0) * 100) + '%';

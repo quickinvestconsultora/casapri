@@ -108,6 +108,24 @@ async function migrar() {
       creado timestamptz not null default now(),
       resuelto timestamptz
     )`,
+    // Pesos: moneda del dinero que entra o sale, monto en pesos y dólar MEP usado.
+    `alter table operaciones add column if not exists moneda text not null default 'USD'`,
+    `alter table operaciones add column if not exists ars_cents bigint`,
+    `alter table operaciones add column if not exists tipo_cambio numeric(14,4)`,
+    // Firma dentro de la plataforma con código enviado por mail.
+    `alter table operaciones add column if not exists codigo_hash text`,
+    `alter table operaciones add column if not exists codigo_vence timestamptz`,
+    `alter table operaciones add column if not exists codigo_intentos int not null default 0`,
+    // Cuenta propia desde la que se transfiere un depósito (tiene que ser del titular).
+    `alter table operaciones add column if not exists cuenta_origen text`,
+    // usuarios.cbu = cuenta en pesos; cbu_usd = cuenta en dólares. Ambas a nombre del titular.
+    `alter table usuarios add column if not exists cbu_usd text`,
+    `create table if not exists cotizaciones (
+      fecha date primary key,
+      compra numeric(14,4) not null,
+      venta numeric(14,4) not null,
+      actualizado timestamptz not null default now()
+    )`,
     `create index if not exists operaciones_usuario on operaciones(usuario_id)`,
     `create index if not exists operaciones_estado on operaciones(estado)`,
   ];

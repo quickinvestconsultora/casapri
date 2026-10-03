@@ -30,13 +30,13 @@ SEGUNDA — VALOR DE LA CUOTAPARTE. El valor de la cuotaparte se actualiza diari
 
 TERCERA — PLAZO. El plazo estimado del proyecto es de aproximadamente cuatro (4) años. El CUOTAPARTISTA podrá solicitar la venta de sus cuotapartes en cualquier momento al valor vigente, conforme a las condiciones de la plataforma.
 
-CUARTA — COMISIONES. El ingreso de fondos no tiene costo. Los retiros de fondos tienen una comisión de ${pct(cfg.comision_retiro)} sobre el monto retirado.
+CUARTA — MONEDA Y COMISIONES. Todos los valores se expresan en dólares estadounidenses. Los fondos ingresados en pesos se convierten a dólares al tipo de cambio MEP del día de su acreditación. Los fondos solo pueden ingresarse desde cuentas de titularidad del CUOTAPARTISTA. El ingreso de fondos no tiene costo. Los retiros de fondos tienen una comisión de ${pct(cfg.comision_retiro)} sobre el monto retirado.
 
 QUINTA — GARANTÍA. ${cfg.garante} se constituye en garante de las obligaciones asumidas por EL DESARROLLADOR frente al CUOTAPARTISTA, en los términos que se establezcan en el instrumento de garantía correspondiente.
 
 SEXTA — REGISTRO. Las cuotapartes se registran a nombre del CUOTAPARTISTA en el registro digital de la plataforma, que da cuenta de su titularidad.
 
-SÉPTIMA — FIRMA ELECTRÓNICA. Las partes acuerdan que la aceptación de este contrato mediante el enlace enviado al correo electrónico registrado del CUOTAPARTISTA constituye su firma electrónica (Ley 25.506) y prestación de consentimiento.
+SÉPTIMA — FIRMA ELECTRÓNICA. Las partes acuerdan que la aceptación de este contrato dentro de la plataforma, con la sesión del CUOTAPARTISTA iniciada y validada con el código enviado a su correo electrónico registrado, constituye su firma electrónica (Ley 25.506) y prestación de consentimiento.
 
 OCTAVA — JURISDICCIÓN. Para cualquier controversia, las partes se someten a los tribunales ordinarios de la ciudad de Mar del Plata.`;
   }
@@ -50,7 +50,7 @@ SEGUNDA — PAGO. El importe se acredita en el saldo del CUOTAPARTISTA en la pla
 
 TERCERA — GARANTÍA. ${cfg.garante} garantiza el pago de la presente operación en los términos del instrumento de garantía correspondiente.
 
-CUARTA — FIRMA ELECTRÓNICA. La aceptación mediante el enlace enviado al correo electrónico registrado del CUOTAPARTISTA constituye su firma electrónica (Ley 25.506).
+CUARTA — FIRMA ELECTRÓNICA. La aceptación dentro de la plataforma, validada con el código enviado al correo electrónico registrado del CUOTAPARTISTA, constituye su firma electrónica (Ley 25.506).
 
 QUINTA — JURISDICCIÓN. Tribunales ordinarios de la ciudad de Mar del Plata.`;
   }
@@ -62,9 +62,9 @@ PRIMERA — OBJETO. EL CUOTAPARTISTA solicita el retiro de ${usd(op.usd_cents)} 
 
 SEGUNDA — COMISIÓN. Se aplica una comisión de ${pct(cfg.comision_retiro)} (${usd(op.comision_cents)}). Monto neto a transferir: ${usd(op.usd_cents - op.comision_cents)}.
 
-TERCERA — DESTINO. El monto se transferirá a la cuenta declarada por EL CUOTAPARTISTA: ${usuario.cbu}.
+TERCERA — MONEDA Y DESTINO. ${op.moneda === 'ARS' ? `El monto neto se paga en pesos, convertido al dólar MEP vigente el día del pago (referencia al día de hoy: $ ${Number(op.tipo_cambio).toLocaleString('es-AR')} por dólar)` : 'El monto neto se paga en dólares'}, a la cuenta de titularidad del CUOTAPARTISTA declarada en la plataforma: ${op.moneda === 'ARS' ? usuario.cbu : usuario.cbu_usd}.
 
-CUARTA — FIRMA ELECTRÓNICA. La aceptación mediante el enlace enviado al correo electrónico registrado constituye la firma electrónica del CUOTAPARTISTA (Ley 25.506).`;
+CUARTA — FIRMA ELECTRÓNICA. La aceptación dentro de la plataforma, validada con el código enviado al correo electrónico registrado, constituye la firma electrónica del CUOTAPARTISTA (Ley 25.506).`;
 }
 
 function titulo(tipo) {

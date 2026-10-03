@@ -61,9 +61,11 @@
       <div class="rot">Valor de la cuotaparte hoy</div>
       <div class="grande" id="precio-hoy">—</div>
       <div class="chico" style="opacity:.8" id="precio-sub">&nbsp;</div>
+      <div class="chico" style="opacity:.8;margin-top:2px" id="precio-ars">&nbsp;</div>
       <div class="linea"><span>Valor inicial</span><b class="num" id="precio-ini">—</b></div>
       <div class="linea"><span>Valor estimado al final</span><b class="num" id="precio-fin">—</b></div>
       <div class="linea"><span>Valor del edificio hoy</span><b class="num" id="valor-edif">—</b></div>
+      <div class="linea"><span>Dólar MEP hoy</span><b class="num" id="mep">—</b></div>
       <div style="margin-top:16px">
         <div class="chico" style="display:flex;justify-content:space-between;opacity:.85"><span>Cuotapartes suscriptas</span><span id="pct-vendido">—</span></div>
         <div class="barra-prog"><i id="barra-vendido" style="width:0"></i></div>
@@ -89,7 +91,7 @@
       <p>Cada departamento equivale a una cantidad fija de cuotapartes. Su valor en dólares es esa cantidad por el valor de la cuotaparte del día.</p></div>
     </div>
     <div class="tarjeta" style="padding:6px"><div class="tabla-env"><table>
-      <thead><tr><th>Unidad</th><th>Tipología</th><th class="der">m²</th><th class="der">Cuotapartes</th><th class="der">Valor hoy</th><th class="der">Valor estimado al final</th></tr></thead>
+      <thead><tr><th>Unidad</th><th>Tipología</th><th class="der">m²</th><th class="der">Cuotapartes</th><th class="der">Valor hoy</th><th class="der">En pesos (MEP)</th><th class="der">Valor estimado al final</th></tr></thead>
       <tbody id="tabla-unidades"><tr><td colspan="6" class="tenue">Cargando…</td></tr></tbody>
     </table></div></div>
   </section>
@@ -99,7 +101,8 @@
       <div>
         <h2>Simulá tu inversión</h2>
         <p class="tenue">Calculá cuántas cuotapartes comprás hoy y cuánto valdrían al final de la obra, a la tasa de referencia.</p>
-        <div class="campo"><label for="sim-monto">Monto a invertir (US$)</label><input id="sim-monto" type="number" min="0" step="100" value="10000" inputmode="decimal"></div>
+        <div class="campo"><label for="sim-monto">Monto a invertir (US$)</label><input id="sim-monto" type="number" min="0" step="100" value="10000" inputmode="decimal"><div class="ayuda" id="sim-ars"></div></div>
+        <p class="chico tenue">Podés ingresar pesos: se convierten a dólares al valor del dólar MEP del día en que se acreditan.</p>
       </div>
       <div class="grilla g2">
         <div class="kpi"><div class="rot">Cuotapartes hoy</div><div class="val" id="sim-cp">—</div></div>
@@ -136,7 +139,7 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <script type="module">
-import { api, marcaHtml, usd, usd0, cp, precio, pct, fecha, esc } from '/js/comun.js';
+import { api, marcaHtml, usd, usd0, ars, ars2, cp, precio, pct, fecha, esc } from '/js/comun.js';
 
 document.getElementById('marca').innerHTML = marcaHtml;
 document.getElementById('anio').textContent = new Date().getFullYear();
@@ -157,6 +160,9 @@ $('precio-sub').innerHTML = `<span style="color:#9FE0D6">▲ ${pct(d.precio_hoy 
 $('precio-ini').textContent = precio(p.valor_inicial);
 $('precio-fin').textContent = precio(d.precio_final);
 $('valor-edif').textContent = usd0(d.totales.valor_edificio_hoy);
+const mep = d.mep?.valor;
+$('mep').textContent = mep ? ars2(mep) : 'sin dato';
+if (mep) $('precio-ars').textContent = `En pesos: ${ars2(d.precio_hoy * mep)} por cuotaparte`;
 const vendido = d.totales.cuotapartes ? d.totales.emitidas / d.totales.cuotapartes : 0;
 $('pct-vendido').textContent = pct(vendido, 1);
 $('barra-vendido').style.width = Math.min(100, vendido * 100) + '%';
@@ -170,8 +176,8 @@ $('kpis').innerHTML = [
 ].map(([r, v, s]) => `<div class="tarjeta kpi"><div class="rot">${r}</div><div class="val">${v}</div><div class="sub">${s}</div></div>`).join('');
 
 $('tabla-unidades').innerHTML = d.unidades.length
-  ? d.unidades.map((u) => `<tr><td><b>${esc(u.nombre)}</b></td><td>${esc(u.tipologia || '')}</td><td class="der num">${u.m2 ?? ''}</td><td class="der num">${cp(u.cuotapartes)}</td><td class="der num"><b>${usd0(u.valor_hoy)}</b></td><td class="der num">${usd0(u.valor_final)}</td></tr>`).join('')
-  : '<tr><td colspan="6" class="tenue">Todavía no hay unidades cargadas.</td></tr>';
+  ? d.unidades.map((u) => `<tr><td><b>${esc(u.nombre)}</b></td><td>${esc(u.tipologia || '')}</td><td class="der num">${u.m2 ?? ''}</td><td class="der num">${cp(u.cuotapartes)}</td><td class="der num"><b>${usd0(u.valor_hoy)}</b></td><td class="der num tenue">${mep ? ars(u.valor_hoy * mep) : '—'}</td><td class="der num">${usd0(u.valor_final)}</td></tr>`).join('')
+  : '<tr><td colspan="7" class="tenue">Todavía no hay unidades cargadas.</td></tr>';
 
 function simular() {
   const m = Number($('sim-monto').value) || 0;
@@ -179,6 +185,7 @@ function simular() {
   $('sim-cp').textContent = cp(c);
   $('sim-fin').textContent = usd(fin);
   $('sim-gan').textContent = m > 0 ? `+${usd(fin - m)} (${pct(fin / m - 1, 1)})` : '';
+  $('sim-ars').textContent = mep && m > 0 ? `Hoy son ${ars(m * mep)} al dólar MEP` : '';
 }
 $('sim-monto').addEventListener('input', simular);
 simular();

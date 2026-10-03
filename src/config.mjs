@@ -17,11 +17,16 @@ export const DEFAULTS = {
   banco_nombre: '',
   banco_cbu: '',
   banco_alias: '',
+  banco_ars_titular: '',
+  banco_ars_nombre: '',
+  banco_ars_cbu: '',
+  banco_ars_alias: '',
   usdt_red: '',
   usdt_direccion: '',
+  mep_manual: '',
 };
 
-const NUMERICAS = ['valor_inicial', 'tasa_anual', 'comision_retiro', 'min_compra_usd', 'firma_horas'];
+const NUMERICAS = ['valor_inicial', 'tasa_anual', 'comision_retiro', 'min_compra_usd', 'firma_horas', 'mep_manual'];
 
 export async function leerConfig() {
   const { rows } = await q('select clave, valor from config');

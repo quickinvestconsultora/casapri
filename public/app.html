@@ -21,6 +21,13 @@
   .pend { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; padding: 12px 0; border-bottom: 1px solid var(--borde); }
   .pend:last-child { border: 0; }
   .grafico { position: relative; height: 220px; }
+  .baja { color: var(--rojo); font-weight: 600; }
+  .codigo { font: 600 24px var(--sans); letter-spacing: .35em; text-align: center; max-width: 220px; }
+  .selector { display: inline-flex; border: 1px solid var(--borde); border-radius: 10px; overflow: hidden; margin-bottom: 14px; }
+  .selector button { border: 0; background: #fff; padding: 8px 16px; font: 600 14px var(--sans); color: var(--tenue); cursor: pointer; }
+  .selector button[aria-pressed="true"] { background: var(--tinta); color: #fff; }
+  .acepto { display: flex; gap: 10px; align-items: flex-start; margin: 14px 0; font-weight: 500; font-size: 14px; color: var(--texto); }
+  .acepto input { width: 18px; height: 18px; flex: none; margin-top: 2px; }
 </style>
 </head>
 <body>
@@ -33,7 +40,7 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <script type="module">
-import { api, marcaHtml, usd, cp, precio, pct, fecha, fechaHora, esc, TIPOS, etiquetaEstado, toast, verContrato, conBoton } from '/js/comun.js';
+import { api, marcaHtml, usd, ars, ars2, cp, precio, pct, fecha, fechaHora, esc, TIPOS, etiquetaEstado, toast, verContrato, conBoton, modal } from '/js/comun.js';
 
 document.getElementById('marca').innerHTML = marcaHtml;
 const vista = document.getElementById('vista');
@@ -120,12 +127,12 @@ function dibujarPanel() {
 
   const avisos = [];
   if (!u.email_ok) avisos.push(`<div class="aviso alerta"><span>Confirmá tu mail <b>${esc(u.email)}</b> para poder operar.</span><button class="btn sec chico" id="reenviar">Reenviar mail</button></div>`);
-  else if (!u.documento || !u.domicilio) avisos.push(`<div class="aviso info"><span>Completá tu DNI/CUIT y domicilio para poder firmar contratos.</span><button class="btn sec chico" data-ir="perfil">Completar perfil</button></div>`);
+  else if (!u.documento || !u.domicilio || (!u.cbu && !u.cbu_usd)) avisos.push(`<div class="aviso info"><span>Completá tu DNI/CUIT, domicilio y tu cuenta bancaria a tu nombre para poder operar.</span><button class="btn sec chico" data-ir="perfil">Completar perfil</button></div>`);
 
   const tabs = [['resumen', 'Resumen'], ['operar', 'Comprar / vender'], ['fondos', 'Ingresar / retirar'], ['movimientos', 'Movimientos'], ['perfil', 'Mi perfil']];
   vista.innerHTML = `
     <div class="bienvenida"><div><div class="tenue chico">Hola, ${esc(u.nombre)}</div><h1>Tu inversión</h1></div>
-      <div class="tenue chico">Cuotaparte hoy: <b class="num" style="color:var(--tinta)">${precio(datos.precio_hoy)}</b></div></div>
+      <div class="tenue chico">Cuotaparte hoy: <b class="num" style="color:var(--tinta)">${precio(datos.precio_hoy)}</b>${datos.mep ? ` · Dólar MEP: <b class="num" style="color:var(--tinta)">${ars2(datos.mep.valor)}</b>` : ''}</div></div>
     ${avisos.join('')}
     <div class="pestanas" role="tablist">${tabs.map(([k, t]) => `<button role="tab" data-tab="${k}" aria-selected="${k === pestana}">${t}</button>`).join('')}</div>
     <div id="contenido"></div>`;
@@ -147,16 +154,53 @@ function filaOp(o, conAcciones) {
   const monto = o.tipo === 'compra' || o.tipo === 'venta' ? `${cp(o.cp)} CP · ${usd(o.usd)}` : usd(o.usd);
   return `<div class="pend"><div><b>${TIPOS[o.tipo]}</b> <span class="tenue">N° ${o.id}</span> ${etiquetaEstado(o.estado)}<div class="chico tenue">${monto} · ${fechaHora(o.creado)}</div></div>
     ${conAcciones ? `<div style="display:flex;gap:6px;flex-wrap:wrap">
-      ${o.estado === 'firma_pendiente' ? `<button class="btn sec chico" data-reenviar="${o.id}">Reenviar mail de firma</button>` : ''}
-      ${o.tiene_contrato ? `<button class="btn sec chico" data-contrato="${o.id}">Ver contrato</button>` : ''}
+      ${o.estado === 'firma_pendiente' ? `<button class="btn chico" data-firmar="${o.id}">Firmar</button>` : ''}
+      ${o.tiene_contrato && o.estado !== 'firma_pendiente' ? `<button class="btn sec chico" data-contrato="${o.id}">Ver contrato</button>` : ''}
       ${o.estado === 'firma_pendiente' || (o.tipo === 'deposito' && o.estado === 'revision') ? `<button class="btn peligro chico" data-cancelar="${o.id}">Cancelar</button>` : ''}
     </div>` : ''}</div>`;
 }
 
 function enlazarAcciones(raiz) {
   raiz.querySelectorAll('[data-contrato]').forEach((b) => (b.onclick = () => verContrato(b.dataset.contrato)));
-  raiz.querySelectorAll('[data-reenviar]').forEach((b) => (b.onclick = () => conBoton(b, async () => { mostrarDevLink(await api(`/operaciones/${b.dataset.reenviar}/reenviar`, { body: {} })); toast('Te reenviamos el mail para firmar.'); })));
+  raiz.querySelectorAll('[data-firmar]').forEach((b) => (b.onclick = () => abrirFirma(b.dataset.firmar)));
   raiz.querySelectorAll('[data-cancelar]').forEach((b) => (b.onclick = () => conBoton(b, async () => { if (!confirm('¿Cancelar esta operación?')) return; await api(`/operaciones/${b.dataset.cancelar}/cancelar`, { body: {} }); toast('Operación cancelada.'); await cargar(); })));
+}
+
+// Firma dentro de la plataforma: leer el contrato, pedir el código por mail e ingresarlo.
+async function abrirFirma(id) {
+  let c;
+  try { c = await api(`/operaciones/${id}/contrato`); } catch (e) { return toast(e.message, true); }
+  const m = modal(`<h3>Firmar ${TIPOS[c.tipo].toLowerCase()} N° ${c.id}</h3>
+    <p class="chico tenue">Leé el contrato completo. Para firmarlo te mandamos un código a tu mail.</p>
+    <div class="contrato">${esc(c.contrato)}</div>
+    <label class="acepto"><input type="checkbox" id="f-ok"> Leí el contrato y lo acepto. Entiendo que firmar con el código vale como mi firma electrónica.</label>
+    <div id="f-paso1"><button class="btn" id="f-pedir" disabled>Enviarme el código por mail</button> <button class="btn sec" data-cerrar>Ahora no</button></div>
+    <div id="f-paso2" class="oculto">
+      <p class="chico" id="f-msg"></p>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+        <input id="f-codigo" class="codigo" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="000000">
+        <button class="btn" id="f-firmar">Firmar contrato</button>
+        <button class="btn sec chico" id="f-reenviar">Reenviar código</button>
+      </div>
+    </div>`);
+  const ok = m.querySelector('#f-ok'), pedir = m.querySelector('#f-pedir');
+  ok.onchange = () => (pedir.disabled = !ok.checked);
+  const enviarCodigo = (b) => conBoton(b, async () => {
+    const r = await api(`/operaciones/${id}/codigo`, { body: {} });
+    m.querySelector('#f-paso1').classList.add('oculto');
+    m.querySelector('#f-paso2').classList.remove('oculto');
+    m.querySelector('#f-msg').innerHTML = `Te mandamos un código de 6 dígitos a <b>${esc(r.email)}</b>. Vence en 10 minutos.${r.dev_codigo ? ` <span class="tenue">(modo local: ${r.dev_codigo})</span>` : ''}`;
+    m.querySelector('#f-codigo').focus();
+  });
+  pedir.onclick = () => enviarCodigo(pedir);
+  m.querySelector('#f-reenviar').onclick = (e) => enviarCodigo(e.target);
+  m.querySelector('#f-firmar').onclick = (e) => conBoton(e.target, async () => {
+    if (!ok.checked) throw new Error('Tenés que aceptar el contrato.');
+    const r = await api(`/operaciones/${id}/firmar`, { body: { codigo: m.querySelector('#f-codigo').value, acepto: true } });
+    m.remove();
+    toast(r.estado === 'confirmada' ? '¡Contrato firmado! La operación quedó confirmada.' : 'Contrato firmado. La operación quedó en revisión; te avisamos por mail.');
+    pestana = 'resumen'; await cargar();
+  });
 }
 
 function resumen() {
@@ -165,11 +209,17 @@ function resumen() {
   const rend = p.costo > 0 ? p.ganancia / p.costo : 0;
   $c().innerHTML = `
     <div class="grilla g4">
-      <div class="tarjeta kpi"><div class="rot">Valor de tus cuotapartes</div><div class="val">${usd(p.valor)}</div><div class="sub">${cp(p.cuotapartes)} cuotapartes</div></div>
+      <div class="tarjeta kpi"><div class="rot">Valor de tus cuotapartes</div><div class="val">${usd(p.valor)}</div><div class="sub">${cp(p.cuotapartes)} cuotapartes${datos.mep ? ' · ≈ ' + ars(p.valor * datos.mep.valor) : ''}</div></div>
       <div class="tarjeta kpi"><div class="rot">Ganancia acumulada</div><div class="val ${p.ganancia > 0 ? 'sube' : ''}">${usd(p.ganancia)}</div><div class="sub">${p.costo > 0 ? pct(rend) + ' sobre lo invertido' : 'Todavía no compraste'}</div></div>
       <div class="tarjeta kpi"><div class="rot">Saldo disponible</div><div class="val">${usd(p.saldo)}</div><div class="sub">para comprar o retirar</div></div>
       <div class="tarjeta kpi"><div class="rot">Valor estimado al final</div><div class="val">${usd(p.valor_final_estimado)}</div><div class="sub">al ${fecha(par.fecha_fin)}, tasa ${pct(par.tasa_anual)}</div></div>
     </div>
+    ${datos.mep ? `<h3 style="margin:22px 0 10px">En pesos <span class="tenue chico" style="font-family:var(--sans);font-weight:400">al dólar MEP de hoy (${ars2(datos.mep.valor)})</span></h3>
+    <div class="grilla g3">
+      <div class="tarjeta kpi"><div class="rot">Tu patrimonio en pesos</div><div class="val">${ars(p.patrimonio_ars)}</div><div class="sub">${usd(p.patrimonio_usd)} entre saldo y cuotapartes</div></div>
+      <div class="tarjeta kpi"><div class="rot">Pesos que pusiste</div><div class="val">${ars(p.aportes_ars)}</div><div class="sub">ingresos menos retiros, al MEP de cada día</div></div>
+      <div class="tarjeta kpi"><div class="rot">${p.ganancia_ars < 0 ? 'Pérdida' : 'Ganancia'} en pesos</div><div class="val ${p.ganancia_ars < 0 ? 'baja' : p.ganancia_ars > 0 ? 'sube' : ''}">${ars(p.ganancia_ars)}</div><div class="sub">incluye la suba o baja del dólar · en dólares: ${usd(p.ganancia_total_usd)}</div></div>
+    </div>` : ''}
     <div class="grilla g2" style="margin-top:16px">
       <div class="tarjeta"><h3>Tu proyección</h3><div class="grafico"><canvas id="g"></canvas></div></div>
       <div class="tarjeta"><h3>Pendientes</h3>${pendientes.length ? pendientes.map((o) => filaOp(o, true)).join('') : `<p class="tenue">No tenés operaciones pendientes.</p>
@@ -203,15 +253,15 @@ function operar() {
         <p class="tenue chico">Saldo disponible: <b>${usd(p.saldo)}</b> · Compra mínima ${usd(par.min_compra_usd)}</p>
         <form id="fc"><div class="campo"><label>Monto a invertir (US$)</label><input name="usd" type="number" min="${par.min_compra_usd}" step="0.01" inputmode="decimal" required></div>
         <div class="vista-previa" id="pc"></div>
-        <button class="btn ancho">Continuar y recibir contrato</button></form>
-        <p class="chico tenue" style="margin-top:10px">Te mandamos el contrato por mail. La compra se hace cuando lo firmás.</p>
+        <button class="btn ancho">Continuar al contrato</button></form>
+        <p class="chico tenue" style="margin-top:10px">Vas a ver el contrato y lo firmás con un código que te llega por mail.</p>
       </div>
       <div class="tarjeta"><h3>Vender cuotapartes</h3>
         <p class="tenue chico">Tenés <b>${cp(p.cuotapartes)}</b> cuotapartes disponibles.</p>
         <form id="fv"><div class="campo"><label>Cuotapartes a vender</label>
           <div style="display:flex;gap:8px"><input name="cp" type="number" min="0" step="0.0001" inputmode="decimal" required><button type="button" class="btn sec" id="todo">Todo</button></div></div>
         <div class="vista-previa" id="pv"></div>
-        <button class="btn ancho mar">Continuar y recibir contrato</button></form>
+        <button class="btn ancho mar">Continuar al contrato</button></form>
         <p class="chico tenue" style="margin-top:10px">${par.venta_requiere_aprobacion ? 'Después de firmar, la venta se acredita cuando la aprueba el desarrollador.' : 'Después de firmar, se acredita en tu saldo.'}</p>
       </div>
     </div>`;
@@ -230,58 +280,85 @@ function operar() {
     e.preventDefault();
     conBoton(f.querySelector('button:not([type=button])'), async () => {
       const r = await api(url, { body: { [campo]: Number(f[campo].value) } });
-      mostrarDevLink(r);
-      toast('Listo. Revisá tu mail para leer y firmar el contrato.');
-      pestana = 'resumen'; await cargar();
+      f.reset();
+      abrirFirma(r.operacion.id);
     });
   });
   enviar(fc, '/compras', 'usd'); enviar(fv, '/ventas', 'cp');
 }
 
 function fondos() {
-  const { posicion: p, parametros: par, banco: b, usuario: u } = datos;
-  const datosBanco = [['Titular', b.titular], ['Banco', b.nombre], ['CBU', b.cbu], ['Alias', b.alias], [b.usdt_red ? `USDT (${b.usdt_red})` : '', b.usdt_direccion]].filter(([k, v]) => k && v);
-  $c().innerHTML = `
-    <div class="grilla g2">
-      <div class="tarjeta"><h3>Ingresar fondos <span class="etiqueta confirmada">Sin costo</span></h3>
-        <p class="tenue chico">Transferí dólares a esta cuenta y después informá la transferencia acá. Lo acreditamos al verificarla.</p>
-        <div class="banco vista-previa">${datosBanco.length ? datosBanco.map(([k, v]) => `<div><span>${esc(k)}</span><b>${esc(v)}</b></div>`).join('') : '<span class="tenue">Los datos bancarios se publican en breve.</span>'}</div>
-        <form id="fd"><div class="fila"><div class="campo"><label>Monto transferido (US$)</label><input name="usd" type="number" min="1" step="0.01" required></div>
-        <div class="campo"><label>N° de operación / comprobante</label><input name="referencia" required maxlength="200"></div></div>
-        <button class="btn ancho">Informar transferencia</button></form>
-      </div>
-      <div class="tarjeta"><h3>Retirar fondos <span class="etiqueta">${pct(par.comision_retiro)} de comisión</span></h3>
-        <p class="tenue chico">Saldo disponible: <b>${usd(p.saldo)}</b>. ${u.cbu ? `Se transfiere a <b>${esc(u.cbu)}</b>.` : 'Primero cargá tu CBU/CVU o alias en «Mi perfil».'}</p>
-        <p class="tenue chico">Si querés retirar lo invertido en cuotapartes, primero vendelas.</p>
-        <form id="fr"><div class="campo"><label>Monto a retirar (US$)</label>
-          <div style="display:flex;gap:8px"><input name="usd" type="number" min="1" step="0.01" required><button type="button" class="btn sec" id="todo">Todo</button></div></div>
-        <div class="vista-previa" id="pr"></div>
-        <button class="btn ancho" ${u.cbu ? '' : 'disabled'}>Continuar y recibir confirmación</button></form>
-      </div>
-    </div>`;
-  const fd = document.getElementById('fd'), fr = document.getElementById('fr');
-  fd.addEventListener('submit', (e) => {
-    e.preventDefault();
-    conBoton(fd.querySelector('button'), async () => {
-      await api('/depositos', { body: { usd: Number(fd.usd.value), referencia: fd.referencia.value } });
-      toast('Recibimos tu aviso. Te avisamos por mail cuando se acredite.');
-      pestana = 'resumen'; await cargar();
+  const { posicion: p, parametros: par, banco: b, banco_ars: ba, usuario: u, mep } = datos;
+  let monedaDep = sessionStorage.getItem('moneda-dep') || 'ARS', monedaRet = sessionStorage.getItem('moneda-ret') || 'ARS';
+  const cuentaPropia = (m) => (m === 'ARS' ? u.cbu : u.cbu_usd);
+  const nombreMoneda = (m) => (m === 'ARS' ? 'pesos' : 'dólares');
+  const selector = (id, actual) => `<div class="selector" id="${id}"><button type="button" data-m="ARS" aria-pressed="${actual === 'ARS'}">Pesos</button><button type="button" data-m="USD" aria-pressed="${actual === 'USD'}">Dólares</button></div>`;
+
+  $c().innerHTML = `<div class="grilla g2"><div class="tarjeta" id="dep"></div><div class="tarjeta" id="ret"></div></div>`;
+
+  function dibujarDeposito() {
+    const m = monedaDep, propia = cuentaPropia(m);
+    const datosBanco = (m === 'ARS'
+      ? [['Titular', ba.titular], ['Banco', ba.nombre], ['CBU', ba.cbu], ['Alias', ba.alias]]
+      : [['Titular', b.titular], ['Banco', b.nombre], ['CBU', b.cbu], ['Alias', b.alias], [b.usdt_red ? `USDT (${b.usdt_red})` : '', b.usdt_direccion]]).filter(([k, v]) => k && v);
+    const el = document.getElementById('dep');
+    el.innerHTML = `<h3>Ingresar fondos <span class="etiqueta confirmada">Sin costo</span></h3>
+      ${selector('sel-dep', m)}
+      <p class="tenue chico">${m === 'ARS' ? `Los pesos se pasan a dólares al <b>dólar MEP</b> del día en que se acreditan${mep ? ` (hoy ${ars2(mep.valor)})` : ''}. Tu inversión siempre se mide en dólares.` : 'Transferí dólares y se acreditan tal cual.'}</p>
+      ${propia ? `<div class="aviso info chico" style="margin-bottom:12px"><span>La transferencia tiene que salir de <b>tu cuenta en ${nombreMoneda(m)}: ${esc(propia)}</b>, a nombre de ${esc(u.nombre)} ${esc(u.apellido)}. No aceptamos transferencias de terceros.</span></div>`
+        : `<div class="aviso alerta chico" style="margin-bottom:12px"><span>Para ingresar ${nombreMoneda(m)} primero cargá en «Mi perfil» tu cuenta en ${nombreMoneda(m)} a tu nombre. Solo aceptamos transferencias desde cuentas del titular.</span></div>`}
+      <div class="banco vista-previa">${datosBanco.length ? datosBanco.map(([k, v]) => `<div><span>${esc(k)}</span><b>${esc(v)}</b></div>`).join('') : '<span class="tenue">Los datos de la cuenta se publican en breve.</span>'}</div>
+      <form id="fd"><div class="fila"><div class="campo"><label>Monto transferido (${m === 'ARS' ? '$' : 'US$'})</label><input name="monto" type="number" min="1" step="0.01" required></div>
+      <div class="campo"><label>N° de operación / comprobante</label><input name="referencia" required maxlength="200"></div></div>
+      <div class="vista-previa ${m === 'ARS' ? '' : 'oculto'}" id="pd"></div>
+      <label class="acepto"><input type="checkbox" name="cuenta_propia"> Transferí desde mi cuenta, a mi nombre.</label>
+      <button class="btn ancho" ${propia ? '' : 'disabled'}>Informar transferencia</button></form>`;
+    el.querySelectorAll('#sel-dep [data-m]').forEach((x) => (x.onclick = () => { monedaDep = x.dataset.m; sessionStorage.setItem('moneda-dep', monedaDep); dibujarDeposito(); }));
+    const fd = el.querySelector('#fd');
+    const prev = () => { if (m === 'ARS') el.querySelector('#pd').innerHTML = `<div><span>Equivale hoy a</span><b>${mep ? usd((Number(fd.monto.value) || 0) / mep.valor) : '—'}</b></div><div class="chico tenue"><span>El valor final se fija con el MEP del día de acreditación.</span></div>`; };
+    fd.monto.oninput = prev; prev();
+    fd.addEventListener('submit', (e) => {
+      e.preventDefault();
+      conBoton(fd.querySelector('button:not([type=button])'), async () => {
+        await api('/depositos', { body: { moneda: m, monto: Number(fd.monto.value), referencia: fd.referencia.value, cuenta_propia: fd.cuenta_propia.checked } });
+        toast('Recibimos tu aviso. Te avisamos por mail cuando se acredite.');
+        pestana = 'resumen'; await cargar();
+      });
     });
-  });
-  const prevR = () => {
-    const m = Number(fr.usd.value) || 0, c = Math.round(m * par.comision_retiro * 100) / 100;
-    document.getElementById('pr').innerHTML = `<div><span>Comisión (${pct(par.comision_retiro)})</span><b>${usd(c)}</b></div><div><span>Recibís</span><b>${usd(m - c)}</b></div>`;
-  };
-  fr.usd.oninput = prevR; prevR();
-  document.getElementById('todo').onclick = () => { fr.usd.value = p.saldo; prevR(); };
-  fr.addEventListener('submit', (e) => {
-    e.preventDefault();
-    conBoton(fr.querySelector('button:not([type=button])'), async () => {
-      mostrarDevLink(await api('/retiros', { body: { usd: Number(fr.usd.value) } }));
-      toast('Revisá tu mail para confirmar el retiro.');
-      pestana = 'resumen'; await cargar();
+  }
+
+  function dibujarRetiro() {
+    const m = monedaRet, propia = cuentaPropia(m);
+    const el = document.getElementById('ret');
+    el.innerHTML = `<h3>Retirar fondos <span class="etiqueta">${pct(par.comision_retiro)} de comisión</span></h3>
+      ${selector('sel-ret', m)}
+      <p class="tenue chico">Saldo disponible: <b>${usd(p.saldo)}</b>. ${propia ? `Se transfiere a tu cuenta en ${nombreMoneda(m)}: <b>${esc(propia)}</b>.` : `Primero cargá tu cuenta en ${nombreMoneda(m)} en «Mi perfil».`}</p>
+      <p class="tenue chico">Si querés retirar lo invertido en cuotapartes, primero vendelas.</p>
+      <form id="fr"><div class="campo"><label>Monto a retirar (US$)</label>
+        <div style="display:flex;gap:8px"><input name="usd" type="number" min="1" step="0.01" required><button type="button" class="btn sec" id="todo">Todo</button></div></div>
+      <div class="vista-previa" id="pr"></div>
+      <button class="btn ancho" ${propia ? '' : 'disabled'}>Continuar al contrato</button></form>`;
+    el.querySelectorAll('#sel-ret [data-m]').forEach((x) => (x.onclick = () => { monedaRet = x.dataset.m; sessionStorage.setItem('moneda-ret', monedaRet); dibujarRetiro(); }));
+    const fr = el.querySelector('#fr');
+    const prev = () => {
+      const v = Number(fr.usd.value) || 0, c = Math.round(v * par.comision_retiro * 100) / 100, neto = v - c;
+      el.querySelector('#pr').innerHTML = `<div><span>Comisión (${pct(par.comision_retiro)})</span><b>${usd(c)}</b></div><div><span>Recibís</span><b>${usd(neto)}</b></div>`
+        + (m === 'ARS' && mep ? `<div><span>En pesos (MEP hoy)</span><b>≈ ${ars(neto * mep.valor)}</b></div><div class="chico tenue"><span>Se paga al MEP del día de la transferencia.</span></div>` : '');
+    };
+    fr.usd.oninput = prev; prev();
+    el.querySelector('#todo').onclick = () => { fr.usd.value = p.saldo; prev(); };
+    fr.addEventListener('submit', (e) => {
+      e.preventDefault();
+      conBoton(fr.querySelector('button:not([type=button])'), async () => {
+        const r = await api('/retiros', { body: { usd: Number(fr.usd.value), moneda: m } });
+        fr.reset();
+        abrirFirma(r.operacion.id);
+      });
     });
-  });
+  }
+
+  dibujarDeposito();
+  dibujarRetiro();
 }
 
 function movimientos() {
@@ -291,7 +368,7 @@ function movimientos() {
     <tbody>${ops.length ? ops.map((o) => `<tr>
       <td class="num">${fecha(o.creado)}</td><td><b>${TIPOS[o.tipo]}</b> <span class="tenue chico">N° ${o.id}</span>${o.nota_admin ? `<div class="chico tenue">${esc(o.nota_admin)}</div>` : ''}</td>
       <td class="der num">${o.cp ? cp(o.cp) : ''}</td><td class="der num">${o.precio ? precio(o.precio) : ''}</td>
-      <td class="der num">${usd(o.usd)}${o.comision ? `<div class="chico tenue">comisión ${usd(o.comision)}</div>` : ''}</td>
+      <td class="der num">${usd(o.usd)}${o.comision ? `<div class="chico tenue">comisión ${usd(o.comision)}</div>` : ''}${o.moneda === 'ARS' && o.ars ? `<div class="chico tenue">${ars2(o.ars)} · MEP ${ars2(o.tipo_cambio)}</div>` : o.moneda === 'ARS' ? '<div class="chico tenue">en pesos</div>' : ''}</td>
       <td>${etiquetaEstado(o.estado)}</td>
       <td>${o.tiene_contrato ? `<button class="btn sec chico" data-contrato="${o.id}">Contrato</button>` : ''}</td></tr>`).join('') : '<tr><td colspan="7" class="tenue">Todavía no hay movimientos.</td></tr>'}</tbody>
   </table></div></div>`;
@@ -309,7 +386,9 @@ function perfil() {
       <div class="fila"><div class="campo"><label>DNI o CUIT</label><input name="documento" value="${v('documento')}" required></div>
       <div class="campo"><label>Teléfono</label><input name="telefono" value="${v('telefono')}" type="tel"></div></div>
       <div class="campo"><label>Domicilio</label><input name="domicilio" value="${v('domicilio')}" required></div>
-      <div class="campo"><label>CBU / CVU / alias para retiros</label><input name="cbu" value="${v('cbu')}"><div class="ayuda">Tiene que ser una cuenta a tu nombre.</div></div>
+      <div class="aviso info chico">Las cuentas tienen que estar a tu nombre: los depósitos solo se aceptan desde ellas y los retiros se pagan a ellas.</div>
+      <div class="fila"><div class="campo"><label>Tu cuenta en pesos (CBU/CVU o alias)</label><input name="cbu" value="${v('cbu')}"></div>
+      <div class="campo"><label>Tu cuenta en dólares (CBU o alias)</label><input name="cbu_usd" value="${v('cbu_usd')}"></div></div>
       <button class="btn">Guardar</button>
     </form></div>`;
   const f = document.getElementById('fp');
