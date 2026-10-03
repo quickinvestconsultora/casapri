@@ -12,6 +12,7 @@ export async function iniciarDb() {
     const local = /localhost|127\.0\.0\.1|railway\.internal/.test(url);
     const ssl = process.env.DATABASE_SSL === 'false' || local ? false : { rejectUnauthorized: false };
     const pool = new pg.Pool({ connectionString: url, ssl, max: 10 });
+    tipoDb = 'postgres';
     impl = {
       query: (sql, params) => pool.query(sql, params),
       tx: async (fn) => {
